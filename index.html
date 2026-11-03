@@ -658,9 +658,21 @@ function applyYearPatches(base,yp){
   }
   return d;
 }
+/* Local changes win per client, but clients/projects that only exist remotely are kept (another device added them). */
+function mergeClients(remote,local){
+  const out=sanitizeClients(local).map(c=>({...c,projects:[...c.projects]}));
+  const byId=new Map(out.map(c=>[c.id,c]));
+  for(const rc of sanitizeClients(remote)){
+    const lc=byId.get(rc.id);
+    if(!lc){out.push(rc);continue;}
+    const pids=new Set(lc.projects.map(p=>p.id));
+    for(const rp of rc.projects)if(!pids.has(rp.id))lc.projects.push(rp);
+  }
+  return out;
+}
 function mergedMeta(){
   const d=cache.meta?.data||{};
-  return {version:1,clients:sanitizeClients(outbox.meta?.clients?outbox.meta.clients.v:d.clients),settings:sanitizeSettings(outbox.meta?.settings?outbox.meta.settings.v:d.settings)};
+  return {version:1,clients:outbox.meta?.clients?mergeClients(d.clients,outbox.meta.clients.v):sanitizeClients(d.clients),settings:sanitizeSettings(outbox.meta?.settings?outbox.meta.settings.v:d.settings)};
 }
 function rebuildMeta(){
   const m=mergedMeta();
@@ -743,7 +755,7 @@ async function syncMeta(){
     if(!cache.meta)storeMeta(await fetchFile("meta.json"));
     const snap=clone(outbox.meta);if(!snap)return;
     const base=cache.meta.data||{};
-    const data={version:1,clients:snap.clients?snap.clients.v:(base.clients||[]),settings:snap.settings?snap.settings.v:(base.settings||{...DEFAULTS})};
+    const data={version:1,clients:snap.clients?mergeClients(base.clients,snap.clients.v):(base.clients||[]),settings:snap.settings?snap.settings.v:(base.settings||{...DEFAULTS})};
     try{
       const sha=await putFile("meta.json",data,cache.meta.sha,"Kunden/Einstellungen");
       cache.meta={sha,etag:null,data};lsPut(K.meta,cache.meta);
@@ -793,6 +805,41 @@ async function loadMeta(){
   catch(e){onNetError(e);}
   metaLoaded=true;
   rebuildMeta();
+}
+/* Brings back clients that were lost from meta.json (e.g. two devices set up at the same time), using the repo history. */
+let recovering=false;const triedRecover=new Set();
+async function recoverClients(){
+  if(recovering||!conn||!metaLoaded||authProblem)return;
+  const known=new Set(state.clients.map(c=>c.id)),orphans=new Set();
+  for(const Y of Object.keys(cache.years))for(const k of Object.keys(cache.years[Y]?.data?.months||{}))if(validKey(k)){const {cid}=parseKey(k);if(!known.has(cid)&&!triedRecover.has(cid))orphans.add(cid);}
+  const fullScan=lsGet("st:recov1")!=="1";
+  if(!orphans.size&&!fullScan)return;
+  recovering=true;
+  const found=new Map();
+  try{
+    const r=await gh("GET","commits?path=meta.json&per_page=30");
+    if(r.ok){
+      for(const cm of await r.json()){
+        const f=await gh("GET",`contents/meta.json?ref=${encodeURIComponent(cm.sha)}`);if(!f.ok)continue;
+        let d;try{d=JSON.parse(b64dec((await f.json()).content||""));}catch(e){continue;}
+        for(const c of sanitizeClients(d.clients))if(!known.has(c.id)&&!found.has(c.id))found.set(c.id,c);
+      }
+      lsSet("st:recov1","1");
+    }
+  }catch(e){}
+  const restored=[];
+  for(const [id,c] of found){
+    if(clientById(id))continue;
+    if(!orphans.has(id)&&state.clients.some(x=>x.name.toLowerCase()===c.name.toLowerCase()))continue;
+    if(state.clients.some(x=>x.name.toLowerCase()===c.name.toLowerCase()))c.name+=" (2)";
+    state.clients.push(c);restored.push(c.name);
+  }
+  for(const id of orphans){
+    triedRecover.add(id);
+    if(!clientById(id)){const c={id,name:`Wiederhergestellter Kunde ${state.clients.length+1}`,rate:state.settings.rate,kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[]};state.clients.push(c);restored.push(c.name);}
+  }
+  recovering=false;
+  if(restored.length){queueMeta("clients");ensureActiveClient();render();toast(`Wiederhergestellt: ${restored.join(", ")}. Bitte unter „Kunden verwalten“ die Sätze prüfen.`);}
 }
 async function loadYear(Y){
   if(!cache.years[Y]){const c=lsJSON(K.yearPrefix+Y);if(c)cache.years[Y]=c;}
@@ -1898,6 +1945,7 @@ async function start(){
   await loadYear(state.y);
   render();
   if(hasOutbox())syncAll();
+  recoverClients();
 }
 readHash();
 conn=loadConn();
