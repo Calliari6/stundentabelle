@@ -1,0 +1,15 @@
+{
+  "name": "Stundentabelle",
+  "short_name": "Stunden",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f5f4",
+  "theme_color": "#0d6b57",
+  "lang": "de",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ]
+}

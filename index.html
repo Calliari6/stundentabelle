@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stundentabelle</title>
+<meta name="theme-color" content="#0d6b57">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stunden">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky toolbar with client switch, collapsible summary, ledger-style day grid that folds into cards on phones */
+:root{
+  --bg:#f2f5f4; --surface:#ffffff; --ink:#15201c; --muted:#5a6863; --line:#d6dedb;
+  --accent:#0d6b57; --accent-ink:#ffffff; --accent-soft:#dfeee9;
+  --weekend:#eaf0ed; --holiday:#fbf1df; --holiday-ink:#86560e; --danger:#b3261e; --busy:#c98a14;
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1311; --surface:#141c19; --ink:#e3ebe8; --muted:#92a19c; --line:#27332f;
+    --accent:#41c3a1; --accent-ink:#04231b; --accent-soft:#15302a;
+    --weekend:#111a17; --holiday:#29210f; --holiday-ink:#e3b55f; --danger:#ff8a80; --busy:#e3b55f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1311; --surface:#141c19; --ink:#e3ebe8; --muted:#92a19c; --line:#27332f;
+  --accent:#41c3a1; --accent-ink:#04231b; --accent-soft:#15302a;
+  --weekend:#111a17; --holiday:#29210f; --holiday-ink:#e3b55f; --danger:#ff8a80; --busy:#e3b55f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+
+/* Toolbar */
+.bar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 20px}
+.brand{font:700 13px/1 var(--font-display);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.client-sel{appearance:none;-webkit-appearance:none;border:1px solid var(--accent);background:var(--accent-soft);color:var(--ink);
+  border-radius:8px;padding:7px 30px 7px 12px;font-weight:600;cursor:pointer;max-width:240px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 16px) 52%,calc(100% - 11px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.period{display:flex;align-items:center;gap:6px}
+.period h1{font:700 21px/1.1 var(--font-display);margin:0 4px;min-width:10ch;text-align:center;text-wrap:balance}
+.icon-btn{width:34px;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:8px;cursor:pointer;display:inline-grid;place-items:center;font-size:18px;line-height:1}
+.icon-btn[aria-pressed="true"] .slash{display:none}
+.icon-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover,.icon-btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary .clock{font-family:var(--font-mono);font-weight:500;opacity:.85;margin-left:6px}
+.spacer{flex:1}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sync{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sync::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.sync[data-s="ok"]::before{background:var(--accent)}
+.sync[data-s="busy"]::before{background:var(--busy)}
+.sync[data-s="warn"]::before{background:var(--danger)}
+
+main{max-width:1200px;margin:0 auto;padding:18px 20px 64px;display:grid;gap:14px}
+main>*{min-width:0}
+main[inert]{opacity:.55}
+.notice{background:var(--holiday);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
+
+/* Summary tiles */
+.sumbox{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.sumbox>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;padding:10px 14px;border-radius:10px}
+.sumbox>summary::-webkit-details-marker{display:none}
+.sumbox>summary:hover{background:var(--accent-soft)}
+.sum-k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sum-line{font:500 15px/1.3 var(--font-mono);font-variant-numeric:tabular-nums;flex:1}
+.chev{color:var(--muted);transition:transform .15s}
+.sumbox[open]>summary .chev{transform:rotate(180deg)}
+.sumbox>.tiles{padding:0 12px 12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:grid;gap:2px;align-content:start}
+.tile .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tile .v{font:600 22px/1.25 var(--font-mono);font-variant-numeric:tabular-nums}
+.tile .s{font-size:12.5px;color:var(--muted)}
+.tile.hero{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.rate-wrap{display:flex;align-items:baseline;gap:4px}
+.rate-wrap input{width:6.5ch;font:600 22px/1.25 var(--font-mono);border:1px solid var(--line);border-radius:6px;padding:0 6px;background:var(--bg)}
+.linkish{border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font-size:12.5px;text-decoration:underline}
+
+/* Day grid */
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.row{display:grid;grid-template-columns:150px repeat(4,78px) 70px minmax(240px,1fr) 66px;
+  align-items:center;gap:0 6px;padding:3px 10px;border-top:1px solid var(--line);min-width:880px}
+.row.head{border-top:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:9px 10px 7px}
+.row.head .r,.r{text-align:right}
+.row.we{background:var(--weekend)}
+.row.hol{background:var(--holiday)}
+.row.today{box-shadow:inset 3px 0 0 var(--accent)}
+.row.today .date b{color:var(--accent)}
+.row.cont{border-top:1px dashed var(--line)}
+.row input{width:100%;min-width:0;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;color:var(--ink)}
+.row input:hover{border-color:var(--line)}
+.row input:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 2px var(--accent-soft)}
+.row input.tm{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:center}
+.row input.tm::placeholder{color:var(--muted);opacity:.55}
+.row input.bad{border-color:var(--danger) !important}
+.f{display:block;min-width:0}
+.cap{display:none}
+.date{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.date b{font-weight:500;font-variant-numeric:tabular-nums}
+.date small{font-size:11.5px;color:var(--holiday-ink)}
+.date .sub{color:var(--muted);font-size:13px}
+.sum{font-family:var(--font-mono);text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.sum.zero{color:var(--muted);font-weight:400}
+.acts{display:flex;gap:2px;justify-content:flex-end}
+.mini{width:28px;height:28px;border:1px solid transparent;background:transparent;border-radius:6px;cursor:pointer;color:var(--muted);font-size:17px;line-height:1}
+.mini:hover{border-color:var(--line);color:var(--ink)}
+
+/* Tables */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.card h2{font:700 15px/1.2 var(--font-display);margin:0;padding:12px 14px 4px}
+.card p{margin:0;padding:0 14px 12px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{padding:7px 12px;text-align:left;border-top:1px solid var(--line);white-space:nowrap}
+td.wrap{white-space:normal;min-width:180px}
+thead th{border-top:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+td.num,th.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+td.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+tfoot td,tfoot th{font-weight:600;border-top:2px solid var(--ink)}
+tr.cur th button{color:var(--accent);font-weight:600}
+tr.we td{background:var(--weekend)}
+.link{border:0;background:none;padding:0;cursor:pointer;font-weight:500;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.link:hover{text-decoration-color:currentColor}
+td.rate input{width:7ch;text-align:right;font-family:var(--font-mono);border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:var(--bg)}
+td.rate input.own{border-color:var(--accent)}
+.barcell{width:24%;min-width:120px}
+.barcell span{display:block;height:10px;border-radius:3px;background:var(--accent);opacity:.85;min-width:0}
+.empty{padding:12px 14px;color:var(--muted);font-size:14px}
+.foot{font-size:12.5px;color:var(--muted)}
+
+/* Onboarding, clients */
+.onboard{padding-bottom:14px}
+.cl-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cl-row input[type="text"],.cl-row input:not([type]){flex:1 1 180px;min-width:0}
+.cl-row input{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--bg)}
+.cl-row input[type="number"]{width:8ch;font-family:var(--font-mono)}
+.cl-row .unit{color:var(--muted);font-size:13px}
+.cl-row label{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.onboard .cl-row{padding:0 14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px 0}
+.chip{border:1px dashed var(--accent);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer;color:var(--accent)}
+#cl-list{display:grid;gap:8px}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgb(0 0 0 / .38);display:grid;place-items:center;z-index:50;padding:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;max-width:480px;width:100%;padding:18px 20px;display:grid;gap:14px;max-height:90vh;overflow:auto}
+.panel.wide{max-width:620px}
+.panel h2{font:700 18px/1.2 var(--font-display);margin:0}
+.panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 0;font-weight:500}
+.panel p{margin:0;font-size:14px}
+.field{display:grid;gap:4px}
+.field label{font-size:13px;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.field textarea{resize:vertical;font-family:var(--font-body)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.list-btn{display:grid;text-align:left;gap:2px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.list-btn:hover{border-color:var(--accent)}
+.list-btn small{color:var(--muted);font-size:12.5px}
+.row-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.row-btns.left{justify-content:flex-start}
+.err{color:var(--danger);font-size:14px;margin:0}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:14px;z-index:60;max-width:calc(100% - 32px);display:flex;gap:12px;align-items:center}
+.toast-act{border:0;background:none;color:var(--accent-soft);text-decoration:underline;cursor:pointer;padding:0;font-weight:600}
+
+/* Connect screen */
+.connect{min-height:100vh;display:grid;place-items:center;padding:20px}
+.connect .panel{max-width:440px}
+.connect .lead{color:var(--muted)}
+.help summary{cursor:pointer;color:var(--accent);font-size:14px}
+.help ol{padding-left:20px;margin:8px 0;font-size:14px;display:grid;gap:4px}
+
+@media (max-width:780px){
+  .bar{padding:8px 12px;gap:8px}
+  .period h1{font-size:18px;min-width:8.5ch}
+  .client-sel{max-width:60vw}
+  main{padding:12px 12px 64px;gap:12px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sumbox .sum-k{display:none}
+  .sum-line{font-size:13.5px}
+  .tile .v{font-size:19px}
+  .rate-wrap input{font-size:19px}
+  .sheet{overflow:visible;background:transparent;border:0;display:grid;gap:8px}
+  .row.head{display:none}
+  .row{min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-areas:"date date sum acts" "v1 b1 v2 b2" "notiz notiz notiz notiz";
+    gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+  .row.cont{border-top:1px dashed var(--line)}
+  .row .date{grid-area:date}
+  .f-v1{grid-area:v1}.f-b1{grid-area:b1}.f-v2{grid-area:v2}.f-b2{grid-area:b2}
+  .row .sum{grid-area:sum}
+  .f-notiz{grid-area:notiz}
+  .row .acts{grid-area:acts}
+  .cap{display:block;font-size:11px;color:var(--muted);padding:0 0 1px 2px}
+  .row input{border-color:var(--line);background:var(--surface);padding:6px 5px}
+  .row.we input,.row.hol input{background:transparent}
+}
+@media (max-width:420px){
+  .actions .btn{padding:7px 10px}
+  .brand{display:none}
+}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+
+<section class="connect" id="connect" hidden>
+  <form class="panel" id="cn-form" autocomplete="off">
+    <h2>Stundentabelle verbinden</h2>
+    <p class="lead">Deine Stunden liegen in einem privaten GitHub-Repo. Dieses Gerät braucht dafür einmalig einen Zugangsschlüssel.</p>
+    <div class="field"><label for="cn-repo">Daten-Repo</label><input id="cn-repo" spellcheck="false" autocapitalize="off" placeholder="Benutzer/stundentabelle-daten"></div>
+    <div class="field"><label for="cn-token">GitHub-Schlüssel</label><input id="cn-token" type="password" spellcheck="false" autocapitalize="off" placeholder="github_pat_…"></div>
+    <p class="err" id="cn-err" hidden></p>
+    <div class="row-btns"><button type="button" class="btn" id="cn-cancel" hidden>Abbrechen</button><button type="submit" class="btn primary" id="cn-btn">Verbinden</button></div>
+    <details class="help">
+      <summary>Wie bekomme ich den Schlüssel?</summary>
+      <ol>
+        <li>Auf GitHub <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">einen neuen Schlüssel erstellen</a> (Fine-grained token).</li>
+        <li><b>Repository access:</b> Only select repositories → dein Daten-Repo.</li>
+        <li><b>Permissions → Repository → Contents:</b> Read and write.</li>
+        <li>Generate token, kopieren und hier einfügen.</li>
+      </ol>
+      <p class="foot">Der Schlüssel bleibt nur auf diesem Gerät gespeichert und gilt nur für das Daten-Repo.</p>
+    </details>
+  </form>
+</section>
+
+<header class="bar" id="bar" hidden>
+  <span class="brand">Stundentabelle</span>
+  <select class="client-sel" id="client-sel" aria-label="Kunde wählen"></select>
+  <div class="seg" role="group" aria-label="Ansicht">
+    <button type="button" id="tab-month" aria-pressed="true">Monat</button>
+    <button type="button" id="tab-year" aria-pressed="false">Jahr</button>
+  </div>
+  <div class="period">
+    <button type="button" class="icon-btn" id="prev" aria-label="Zurück">‹</button>
+    <h1 id="period-label">–</h1>
+    <button type="button" class="icon-btn" id="next" aria-label="Weiter">›</button>
+    <button type="button" class="btn" id="today-btn">Heute</button>
+  </div>
+  <span class="spacer"></span>
+  <span class="sync" id="sync" data-s="busy" role="status">Lädt …</span>
+  <div class="actions">
+    <button type="button" class="btn primary" id="stamp">Kommen<span class="clock"></span></button>
+    <button type="button" class="icon-btn" id="money-btn" aria-pressed="false" aria-label="Beträge einblenden" title="Beträge einblenden"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M3 3l18 18"/></svg></button>
+    <button type="button" class="btn" id="export-btn">Export</button>
+    <button type="button" class="icon-btn" id="settings-btn" aria-label="Einstellungen" title="Einstellungen">⚙</button>
+  </div>
+</header>
+
+<main id="main" hidden>
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="card onboard" id="onboard" hidden>
+    <h2>Für wen arbeitest du?</h2>
+    <p>Lege deinen ersten Kunden an. Jeder Kunde bekommt eine eigene Stundentabelle mit eigenem Stundensatz. Weitere Kunden fügst du später über die Kundenauswahl oben hinzu.</p>
+    <form class="cl-row" id="ob-form">
+      <input type="text" id="ob-name" placeholder="Kundenname" aria-label="Kundenname">
+      <input type="number" id="ob-rate" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz in Euro">
+      <span class="unit">€/h</span>
+      <button type="submit" class="btn primary">Anlegen</button>
+    </form>
+    <div class="chips"><span class="foot">Schnell anlegen:</span><button type="button" class="chip" data-name="TechnoAlpin">TechnoAlpin</button><button type="button" class="chip" data-name="ARO Konsortium">ARO Konsortium</button></div>
+  </section>
+
+  <section id="view-month" aria-label="Monatsansicht">
+    <details class="sumbox" id="m-sumbox">
+      <summary><span class="sum-k" id="m-sum-k">Monatsübersicht</span><span class="sum-line" id="m-sum-line">0:00 h</span><span class="chev" aria-hidden="true">▾</span></summary>
+      <div class="tiles" id="month-tiles">
+        <div class="tile hero"><span class="k">Stunden</span><span class="v" id="m-hours">0:00</span><span class="s" id="m-hours-dec">0,00 h dezimal</span></div>
+        <div class="tile" id="t-rate"><span class="k">Stundensatz</span>
+          <span class="rate-wrap" id="m-rate-wrap"><input type="number" id="m-rate" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz für diesen Monat"><span class="v">€</span></span>
+          <span class="v" id="m-rate-mask" hidden>•• €</span>
+          <span class="s" id="m-rate-note"></span></div>
+        <div class="tile" id="t-clients" hidden><span class="k">Kunden</span><span class="v" id="m-nclients">0</span><span class="s">mit Stunden in diesem Monat</span></div>
+        <div class="tile"><span class="k">Umsatz</span><span class="v" id="m-rev">•••• €</span><span class="s" id="m-days">0 Arbeitstage</span></div>
+        <div class="tile"><span class="k" id="m-net-k">Netto</span><span class="v" id="m-net">•••• €</span><span class="s">nach Abzug Steuern &amp; Beiträge</span></div>
+      </div>
+    </details>
+    <div class="sheet" id="sheet" role="table" aria-label="Tage des Monats" style="margin-top:14px"></div>
+    <div class="card" id="all-month" style="margin-top:14px" hidden><h2>Alle Einträge</h2><div id="all-month-body"></div></div>
+    <div class="card" id="m-clients-card" style="margin-top:14px" hidden><h2>Nach Kunde</h2><div id="m-clients"></div></div>
+  </section>
+
+  <section id="view-year" aria-label="Jahresansicht" hidden>
+    <div class="tiles">
+      <div class="tile hero"><span class="k">Stunden</span><span class="v" id="y-hours">0:00</span><span class="s" id="y-hours-dec">0,00 h dezimal</span></div>
+      <div class="tile"><span class="k">Umsatz</span><span class="v" id="y-rev">•••• €</span><span class="s" id="y-avg"></span></div>
+      <div class="tile"><span class="k" id="y-net-k">Netto</span><span class="v" id="y-net">•••• €</span><span class="s">nach Abzug Steuern &amp; Beiträge</span></div>
+      <div class="tile"><span class="k">Arbeitstage</span><span class="v" id="y-days">0</span><span class="s" id="y-months"></span></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h2 id="y-title">Jahresumsatz</h2><div id="year-table"></div></div>
+    <div class="card" id="y-clients-card" style="margin-top:14px" hidden><h2>Nach Kunde</h2><div id="y-clients"></div></div>
+  </section>
+
+  <p class="foot">Zeiten schnell tippen: 8 → 08:00, 830 → 08:30, 1730 → 17:30. Enter springt zum nächsten Tag. Zeiten über Mitternacht werden automatisch gerechnet. Feiertage: Italien und Pfingstmontag (Südtirol).</p>
+</main>
+
+<input type="file" id="file-xlsx" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+<input type="file" id="file-json" accept=".json,application/json" hidden>
+
+<div class="overlay" id="ov-export" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-export-h">
+    <h2 id="ov-export-h">Exportieren</h2>
+    <div class="field"><label for="ex-client">Kunde</label><select id="ex-client"></select></div>
+    <label class="check"><input type="checkbox" id="ex-money"> Stundensatz und Betrag im PDF angeben</label>
+    <button type="button" class="list-btn" id="ex-pdf"><b id="ex-pdf-t">PDF-Stundennachweis</b><small>Alle Einträge des Monats mit Summe und Unterschriftsfeldern – zum Mitschicken mit der Rechnung</small></button>
+    <button type="button" class="list-btn" id="ex-xlsx"><b id="ex-xlsx-t">Excel – Jahr</b><small>Wie deine Vorlage: Jahresumsatz plus ein Blatt pro Monat, mit Formeln</small></button>
+    <button type="button" class="list-btn" id="ex-json"><b>Backup – alle Daten</b><small>JSON-Datei mit allen Kunden und Jahren</small></button>
+    <div class="row-btns"><button type="button" class="btn" data-close>Schließen</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-settings" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-settings-h">
+    <h2 id="ov-settings-h">Einstellungen</h2>
+    <div class="field"><label for="set-name">Dein Name / Firma (erscheint im PDF)</label><input type="text" id="set-name" autocomplete="name"></div>
+    <div class="field"><label for="set-info">Zusatzzeilen im PDF (Adresse, Partita IVA …)</label><textarea id="set-info" rows="3"></textarea></div>
+    <div class="field"><label for="set-rate">Standard-Stundensatz für neue Kunden (€)</label><input type="number" id="set-rate" min="0" step="0.5" inputmode="decimal"></div>
+    <div class="field"><label for="set-deduct">Abzug für Steuern &amp; Beiträge (%) – für die Netto-Werte</label><input type="number" id="set-deduct" min="0" max="100" step="1" inputmode="numeric"></div>
+    <button type="button" class="list-btn" id="open-clients"><b>Kunden verwalten</b><small>Namen, Stundensätze, Kunden ausblenden</small></button>
+    <h3>Daten übernehmen</h3>
+    <button type="button" class="list-btn" id="im-xlsx"><b>Excel-Datei importieren</b><small>Stundentabelle im Vorlagen-Format; die Spalte „Kunde“ ordnet die Zeilen deinen Kunden zu</small></button>
+    <button type="button" class="list-btn" id="im-json"><b>Backup wiederherstellen</b><small>JSON-Datei aus „Export → Backup“</small></button>
+    <h3>Verbindung</h3>
+    <p class="foot" id="conn-info"></p>
+    <div class="row-btns left"><button type="button" class="btn" id="conn-change">Schlüssel ändern</button><button type="button" class="btn" id="conn-off">Von diesem Gerät trennen</button></div>
+    <div class="row-btns"><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-clients" hidden>
+  <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="ov-clients-h">
+    <h2 id="ov-clients-h">Kunden</h2>
+    <div id="cl-list"></div>
+    <h3>Neuer Kunde</h3>
+    <form class="cl-row" id="cl-add">
+      <input type="text" id="cl-new-name" placeholder="Name, z. B. TechnoAlpin" aria-label="Name des neuen Kunden">
+      <input type="number" id="cl-new-rate" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz des neuen Kunden">
+      <span class="unit">€/h</span>
+      <button type="submit" class="btn primary">Hinzufügen</button>
+    </form>
+    <p class="foot">Ausgeblendete Kunden verschwinden aus der Auswahl, ihre Stunden bleiben erhalten und zählen in „Alle Kunden“ weiter mit.</p>
+    <div class="row-btns"><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-confirm" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="cf-h">
+    <h2 id="cf-h">Bestätigen</h2>
+    <p id="cf-text"></p>
+    <div class="row-btns"><button type="button" class="btn" id="cf-no">Abbrechen</button><button type="button" class="btn primary" id="cf-yes">OK</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ================= Basics ================= */
+const MONTHS=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const WD=["So","Mo","Di","Mi","Do","Fr","Sa"];
+const FIELDS=["v1","b1","v2","b2"];
+const ALLF=[...FIELDS,"notiz"];
+const DEFAULTS={rate:43,deduct:30,name:"",info:""};
+const CFG=Object.assign({dataRepo:""},window.STUNDEN_CONFIG||{});
+const API="https://api.github.com";
+const K={token:"st:token",repo:"st:repo",meta:"st:c:meta",yearPrefix:"st:c:y:",outbox:"st:outbox",client:"st:client",last:"st:last",sum:"st:sumOpen"};
+
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,"0");
+const daysIn=(y,m)=>new Date(y,m,0).getDate();
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const EUR=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
+const DEC=new Intl.NumberFormat("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur=v=>EUR.format(v||0);
+const toMin=s=>{const r=/^(\d{1,2}):(\d{2})/.exec(String(s||""));return r?(+r[1])*60+(+r[2]):null;};
+const hhmm=min=>`${pad(Math.floor(min/60))}:${pad(min%60)}`;
+function parseTime(raw){
+  const s=String(raw??"").trim().toLowerCase();
+  if(!s)return "";
+  let h,m,r;
+  if((r=/^(\d{1,2})\s*[:.,h ]\s*(\d{1,2})$/.exec(s))){h=+r[1];m=r[2].length===1?+r[2]*10:+r[2];}
+  else if((r=/^(\d{1,2})(\d{2})$/.exec(s))){h=+r[1];m=+r[2];}
+  else if((r=/^(\d{1,2})\s*h?$/.exec(s))){h=+r[1];m=0;}
+  else return null;
+  if(m>59||h>24||(h===24&&m>0))return null;
+  return hhmm(h*60+m);
+}
+const span=(a,b)=>{const x=toMin(a),y=toMin(b);if(x==null||y==null)return 0;let d=y-x;if(d<0)d+=1440;return d;};
+const entryMin=e=>e?span(e.v1,e.b1)+span(e.v2,e.b2):0;
+const fmtHM=min=>`${Math.floor(min/60)}:${pad(Math.round(min%60))}`;
+const fmtDec=min=>DEC.format(min/60);
+const numOr=(v,d)=>{const n=typeof v==="number"?v:parseFloat(String(v??"").replace(",","."));return isFinite(n)?n:d;};
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+const lsDel=k=>{try{localStorage.removeItem(k);}catch(e){}};
+const lsJSON=k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}};
+const lsPut=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}};
+const b64enc=str=>{const b=new TextEncoder().encode(str);let s="";for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s);};
+const b64dec=b64=>{const s=atob(String(b64).replace(/\s/g,""));const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return new TextDecoder().decode(b);};
+const safeName=s=>String(s||"").normalize("NFKD").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"")||"Kunde";
+
+/* Month keys: <clientId>_<YYYY>-<MM> */
+const mk=(cid,y,m)=>`${cid}_${y}-${pad(m)}`;
+const validKey=k=>/^[a-z0-9]+_\d{4}-\d{2}$/.test(k);
+function parseKey(k){const i=k.lastIndexOf("_");return {cid:k.slice(0,i),y:+k.slice(i+1,i+5),m:+k.slice(i+6,i+8)};}
+
+const now=new Date();
+const state={view:"month",y:now.getFullYear(),m:now.getMonth()+1,client:lsGet(K.client)||"",lastClient:lsGet(K.last)||"",
+  clients:[],settings:{...DEFAULTS},months:{},showMoney:false};
+
+/* ================= Holidays (Italy + South Tyrol) ================= */
+const holCache={};
+function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return new Date(y,mo-1,da);}
+function holidays(y){
+  if(holCache[y])return holCache[y];
+  const H={"01-01":"Neujahr","01-06":"Heilige Drei Könige","04-25":"Tag der Befreiung","05-01":"Tag der Arbeit","06-02":"Tag der Republik","08-15":"Mariä Himmelfahrt","11-01":"Allerheiligen","12-08":"Mariä Empfängnis","12-25":"Weihnachten","12-26":"Stephanstag"};
+  if(y>=2026)H["10-04"]="Hl. Franziskus";
+  const e=easter(y);
+  const add=(n,name)=>{const d=new Date(e.getFullYear(),e.getMonth(),e.getDate()+n);H[`${pad(d.getMonth()+1)}-${pad(d.getDate())}`]=name;};
+  add(0,"Ostersonntag");add(1,"Ostermontag");add(50,"Pfingstmontag");
+  return holCache[y]=H;
+}
+
+/* ================= Data model ================= */
+const blank=()=>({v1:"",b1:"",v2:"",b2:"",notiz:""});
+const isBlankEntry=e=>!e||ALLF.every(f=>!String(e[f]??"").trim());
+function cleanEntry(e){
+  const o={};
+  for(const f of ALLF){
+    let v=String(e?.[f]??"").trim();
+    if(FIELDS.includes(f)){const t=toMin(v);v=t==null?"":hhmm(t);}else v=v.slice(0,500);
+    o[f]=v;
+  }
+  return o;
+}
+function cleanList(list){return (Array.isArray(list)?list:[]).map(cleanEntry).filter(e=>!isBlankEntry(e));}
+function serialize(md){
+  const days={};
+  const src=md&&md.days&&typeof md.days==="object"?md.days:{};
+  for(const d of Object.keys(src).sort()){
+    if(!/^\d{2}$/.test(d))continue;
+    const cl=cleanList(src[d]);
+    if(cl.length)days[d]=cl;
+  }
+  const r=md?md.rate:null;
+  return {rate:typeof r==="number"&&isFinite(r)?r:null,days};
+}
+const normalize=data=>serialize(data||{});
+const sameMonth=(a,b)=>JSON.stringify(serialize(a))===JSON.stringify(serialize(b));
+const getMonth=key=>state.months[key]||{rate:null,days:{}};
+const ensureMonth=key=>state.months[key]||(state.months[key]={rate:null,days:{}});
+function monthEntries(key){
+  const md=getMonth(key),out=[];
+  for(const d of Object.keys(md.days).sort())for(const e of (md.days[d]||[]))if(!isBlankEntry(e))out.push([d,e]);
+  return out;
+}
+const monthMin=key=>monthEntries(key).reduce((t,[,e])=>t+entryMin(e),0);
+const clientById=id=>state.clients.find(c=>c.id===id)||null;
+const clientName=id=>clientById(id)?.name||"Unbekannter Kunde";
+function rateOf(key){
+  const r=state.months[key]?.rate;if(typeof r==="number")return r;
+  const c=clientById(parseKey(key).cid);return c&&typeof c.rate==="number"?c.rate:state.settings.rate;
+}
+const baseRate=cid=>{const c=clientById(cid);return c&&typeof c.rate==="number"?c.rate:state.settings.rate;};
+const netOf=v=>v*(1-state.settings.deduct/100);
+const money=v=>state.showMoney?eur(v):"•••• €";
+const isAll=()=>state.client==="*";
+const scopeIds=()=>isAll()?state.clients.map(c=>c.id):(state.client?[state.client]:[]);
+function sanitizeClients(list){
+  const out=[],seen=new Set();
+  for(const c of (Array.isArray(list)?list:[])){
+    if(!c||typeof c.id!=="string"||!/^[a-z0-9]+$/.test(c.id)||seen.has(c.id))continue;
+    seen.add(c.id);
+    out.push({id:c.id,name:String(c.name||"Kunde").slice(0,80),rate:numOr(c.rate,DEFAULTS.rate),hidden:!!c.hidden});
+  }
+  return out;
+}
+const sanitizeSettings=s=>({rate:numOr(s?.rate,DEFAULTS.rate),deduct:Math.min(100,Math.max(0,numOr(s?.deduct,DEFAULTS.deduct))),name:String(s?.name||"").slice(0,120),info:String(s?.info||"").slice(0,500)});
+function newClientId(){let id;do{id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}while(clientById(id));return id;}
+function ensureActiveClient(){
+  const ids=state.clients.map(c=>c.id);
+  if(!(state.client==="*"&&state.clients.length>1)&&!ids.includes(state.client)){
+    const v=state.clients.find(c=>!c.hidden)||state.clients[0];state.client=v?v.id:"";
+  }
+  if(!ids.includes(state.lastClient))state.lastClient=state.client&&state.client!=="*"?state.client:(state.clients[0]?.id||"");
+}
+
+/* ================= GitHub storage =================
+   meta.json        → {clients, settings}
+   jahre/YYYY.json  → {months: {"<cid>_YYYY-MM": {client, year, month, rate, days}}}
+   Changes go to an outbox (per day) kept on this device, then are merged onto the latest file and committed. */
+let conn=null, authProblem=false, offline=false, lastError=null, syncing=false, syncAgain=false, syncTimer=null, retryDelay=0;
+const cache={meta:null,years:{}};
+const fetchedYears=new Set();
+let metaLoaded=false;
+let outbox=lsJSON(K.outbox)||{seq:0,years:{},meta:null};
+if(!outbox.years)outbox.years={};
+const saveOutbox=()=>{if(!lsPut(K.outbox,outbox))toast("Speicher im Browser ist voll – Änderungen konnten nicht vorgemerkt werden.");};
+const hasOutbox=()=>!!outbox.meta||Object.values(outbox.years).some(y=>Object.keys(y).length);
+const yPath=Y=>`jahre/${Y}.json`;
+
+function loadConn(){const t=lsGet(K.token),r=lsGet(K.repo)||CFG.dataRepo;return t&&r?{repo:r,token:t}:null;}
+async function gh(method,path,body,headers){
+  return fetch(`${API}/repos/${conn.repo}/${path}`,{method,cache:"no-store",
+    headers:Object.assign({Accept:"application/vnd.github+json",Authorization:`Bearer ${conn.token}`},body?{"Content-Type":"application/json"}:{},headers||{}),
+    body:body?JSON.stringify(body):undefined});
+}
+async function httpErr(r){const e=new Error("HTTP "+r.status);e.status=r.status;try{e.gh=(await r.json()).message||"";}catch(x){e.gh="";}return e;}
+async function fetchFile(path,etag){
+  const r=await gh("GET",`contents/${path}`,null,etag?{"If-None-Match":etag}:null);
+  if(r.status===304)return {unchanged:true};
+  if(r.status===404)return {missing:true};
+  if(!r.ok)throw await httpErr(r);
+  const j=await r.json();
+  let txt=j.content?b64dec(j.content):"";
+  if(!txt&&j.size>0){const rr=await gh("GET",`contents/${path}`,null,{Accept:"application/vnd.github.raw+json"});if(!rr.ok)throw await httpErr(rr);txt=await rr.text();}
+  let data=null;try{data=txt?JSON.parse(txt):null;}catch(e){throw new Error(`Die Datei ${path} im Daten-Repo ist beschädigt.`);}
+  return {sha:j.sha,etag:r.headers.get("ETag"),data};
+}
+async function putFile(path,data,sha,message){
+  const r=await gh("PUT",`contents/${path}`,Object.assign({message,content:b64enc(JSON.stringify(data,null,1))},sha?{sha}:{}));
+  if(r.status===409||r.status===422){const e=new Error("conflict");e.conflict=true;e.status=r.status;throw e;}
+  if(!r.ok)throw await httpErr(r);
+  const j=await r.json();return j.content.sha;
+}
+function storeMeta(f){
+  if(f.unchanged)return cache.meta;
+  cache.meta=f.missing?{sha:null,etag:null,data:{version:1,clients:[],settings:{...DEFAULTS}}}:{sha:f.sha,etag:f.etag,data:f.data||{}};
+  lsPut(K.meta,cache.meta);return cache.meta;
+}
+function storeYear(Y,f){
+  if(f.unchanged)return cache.years[Y];
+  cache.years[Y]=f.missing?{sha:null,etag:null,data:{version:1,year:Y,months:{}}}:{sha:f.sha,etag:f.etag,data:f.data||{months:{}}};
+  lsPut(K.yearPrefix+Y,cache.years[Y]);return cache.years[Y];
+}
+function applyYearPatches(base,yp){
+  const d={version:1,year:base?.year,months:clone(base?.months||{})};
+  for(const [key,p] of Object.entries(yp||{})){
+    if(!validKey(key))continue;
+    const cur=d.months[key]||{client:p.client,year:p.year,month:p.month,rate:null,days:{}};
+    const mo={rate:cur.rate,days:Object.assign({},cur.days||{})};
+    for(const [dd,v] of Object.entries(p.days||{})){if(v&&Array.isArray(v.v)&&v.v.length)mo.days[dd]=v.v;else delete mo.days[dd];}
+    if(p.rate)mo.rate=p.rate.v;
+    const s=serialize(mo);
+    if(!Object.keys(s.days).length&&s.rate==null)delete d.months[key];
+    else d.months[key]={client:p.client,year:p.year,month:p.month,rate:s.rate,days:s.days};
+  }
+  return d;
+}
+function mergedMeta(){
+  const d=cache.meta?.data||{};
+  return {version:1,clients:sanitizeClients(outbox.meta?.clients?outbox.meta.clients.v:d.clients),settings:sanitizeSettings(outbox.meta?.settings?outbox.meta.settings.v:d.settings)};
+}
+function rebuildMeta(){
+  const m=mergedMeta();
+  const changed=JSON.stringify(m.clients)!==JSON.stringify(state.clients)||JSON.stringify(m.settings)!==JSON.stringify(state.settings);
+  state.clients=m.clients;state.settings=m.settings;ensureActiveClient();
+  return changed;
+}
+function rebuildYear(Y){
+  const merged=applyYearPatches(cache.years[Y]?.data,outbox.years[Y]);
+  let changed=false;
+  for(const k of Object.keys(state.months)){
+    if(parseKey(k).y!==Y||(k in merged.months))continue;
+    const s=serialize(state.months[k]);
+    if(Object.keys(s.days).length||s.rate!=null){delete state.months[k];changed=true;}
+  }
+  for(const [k,mo] of Object.entries(merged.months)){
+    if(!validKey(k))continue;
+    const n=normalize(mo);
+    if(!state.months[k]||!sameMonth(state.months[k],n)){state.months[k]=n;changed=true;}
+  }
+  return changed;
+}
+
+/* Queue changes */
+function queueDay(key,dd){
+  const {cid,y,m}=parseKey(key);
+  const yp=outbox.years[y]||(outbox.years[y]={});
+  const e=yp[key]||(yp[key]={client:cid,year:y,month:m,days:{}});
+  e.days[dd]={v:cleanList(getMonth(key).days[dd]),s:++outbox.seq};
+  saveOutbox();scheduleSync();
+}
+function queueRate(key){
+  const {cid,y,m}=parseKey(key);
+  const yp=outbox.years[y]||(outbox.years[y]={});
+  const e=yp[key]||(yp[key]={client:cid,year:y,month:m,days:{}});
+  const r=state.months[key]?.rate;
+  e.rate={v:typeof r==="number"?r:null,s:++outbox.seq};
+  saveOutbox();scheduleSync();
+}
+function queueMonthReplace(key){
+  const {y,m}=parseKey(key);
+  for(let d=1;d<=daysIn(y,m);d++)queueDayNoSync(key,pad(d));
+  queueRate(key);
+}
+function queueDayNoSync(key,dd){
+  const {cid,y,m}=parseKey(key);
+  const yp=outbox.years[y]||(outbox.years[y]={});
+  const e=yp[key]||(yp[key]={client:cid,year:y,month:m,days:{}});
+  e.days[dd]={v:cleanList(getMonth(key).days[dd]),s:++outbox.seq};
+}
+function queueMeta(field){
+  outbox.meta=outbox.meta||{};
+  outbox.meta[field]={v:clone(field==="clients"?state.clients:state.settings),s:++outbox.seq};
+  saveOutbox();scheduleSync();
+}
+
+/* Sync */
+function scheduleSync(ms=1500){clearTimeout(syncTimer);syncTimer=setTimeout(syncAll,ms);updateSync();}
+async function syncAll(){
+  clearTimeout(syncTimer);syncTimer=null;
+  if(!conn||authProblem)return;
+  if(syncing){syncAgain=true;return;}
+  if(!hasOutbox()){updateSync();return;}
+  syncing=true;updateSync();
+  let ok=false;
+  try{
+    if(outbox.meta)await syncMeta();
+    for(const Y of Object.keys(outbox.years).map(Number))if(Object.keys(outbox.years[Y]||{}).length)await syncYear(Y);
+    netOk();ok=true;retryDelay=0;
+  }catch(e){onNetError(e);}
+  finally{
+    syncing=false;
+    if(syncAgain){syncAgain=false;scheduleSync(300);}
+    else if(!ok&&hasOutbox()&&!authProblem){retryDelay=Math.min(120000,(retryDelay||4000)*2);scheduleSync(retryDelay);}
+    updateSync();
+  }
+}
+async function syncMeta(){
+  for(let i=0;i<5;i++){
+    if(!cache.meta)storeMeta(await fetchFile("meta.json"));
+    const snap=clone(outbox.meta);if(!snap)return;
+    const base=cache.meta.data||{};
+    const data={version:1,clients:snap.clients?snap.clients.v:(base.clients||[]),settings:snap.settings?snap.settings.v:(base.settings||{...DEFAULTS})};
+    try{
+      const sha=await putFile("meta.json",data,cache.meta.sha,"Kunden/Einstellungen");
+      cache.meta={sha,etag:null,data};lsPut(K.meta,cache.meta);
+      if(outbox.meta){for(const f of ["clients","settings"])if(snap[f]&&outbox.meta[f]&&outbox.meta[f].s===snap[f].s)delete outbox.meta[f];if(!Object.keys(outbox.meta).length)outbox.meta=null;}
+      saveOutbox();return;
+    }catch(e){if(!e.conflict)throw e;storeMeta(await fetchFile("meta.json"));if(rebuildMeta())requestRender();}
+  }
+  throw new Error("Kunden konnten nicht gespeichert werden (Konflikt).");
+}
+async function syncYear(Y){
+  for(let i=0;i<5;i++){
+    if(!cache.years[Y]){const c=lsJSON(K.yearPrefix+Y);if(c)cache.years[Y]=c;else storeYear(Y,await fetchFile(yPath(Y)));}
+    const snap=clone(outbox.years[Y]||{});if(!Object.keys(snap).length)return;
+    const data=applyYearPatches(cache.years[Y].data,snap);data.year=Y;
+    try{
+      const sha=await putFile(yPath(Y),data,cache.years[Y].sha,`Stunden ${Y}`);
+      cache.years[Y]={sha,etag:null,data};lsPut(K.yearPrefix+Y,cache.years[Y]);
+      const cur=outbox.years[Y]||{};
+      for(const [key,p] of Object.entries(snap)){
+        const c=cur[key];if(!c)continue;
+        for(const [dd,v] of Object.entries(p.days||{}))if(c.days[dd]&&c.days[dd].s===v.s)delete c.days[dd];
+        if(p.rate&&c.rate&&c.rate.s===p.rate.s)delete c.rate;
+        if(!Object.keys(c.days).length&&!c.rate)delete cur[key];
+      }
+      if(!Object.keys(cur).length)delete outbox.years[Y];
+      saveOutbox();return;
+    }catch(e){if(!e.conflict)throw e;storeYear(Y,await fetchFile(yPath(Y)));if(rebuildYear(Y))requestRender();}
+  }
+  throw new Error("Stunden konnten nicht gespeichert werden (Konflikt).");
+}
+function onNetError(e){
+  const st=e&&e.status;
+  if(st===401){authProblem=true;showNotice("Der GitHub-Schlüssel ist ungültig oder abgelaufen. Unter ⚙ → „Schlüssel ändern“ einen neuen eintragen. Deine Änderungen bleiben vorgemerkt.");}
+  else if(st===403){lastError=e;showNotice(/rate limit/i.test(e.gh||"")?"GitHub-Limit erreicht – es geht in ein paar Minuten automatisch weiter.":"Der Schlüssel darf nicht schreiben. Beim Schlüssel „Contents: Read and write“ für das Daten-Repo erlauben.");}
+  else if(st===404){lastError=e;showNotice("Daten-Repo nicht gefunden. Prüfe unter ⚙ Namen und Schlüssel.");}
+  else if(st){lastError=e;}
+  else if(e&&e.message&&!(e instanceof TypeError)){lastError=e;toast(e.message);}
+  else offline=true;
+  updateSync();
+}
+function netOk(){offline=false;lastError=null;if(!authProblem)showNotice("");}
+
+async function loadMeta(){
+  if(!cache.meta){const c=lsJSON(K.meta);if(c)cache.meta=c;}
+  if(cache.meta)rebuildMeta();
+  try{storeMeta(await fetchFile("meta.json",cache.meta?.etag));netOk();}
+  catch(e){onNetError(e);}
+  metaLoaded=true;
+  rebuildMeta();
+}
+async function loadYear(Y){
+  if(!cache.years[Y]){const c=lsJSON(K.yearPrefix+Y);if(c)cache.years[Y]=c;}
+  if(cache.years[Y]&&rebuildYear(Y))requestRender();
+  try{storeYear(Y,await fetchFile(yPath(Y),cache.years[Y]?.etag));netOk();}
+  catch(e){onNetError(e);}
+  fetchedYears.add(Y);
+  if(rebuildYear(Y))requestRender();
+  updateLock();updateSync();
+}
+let refreshing=false;
+async function refresh(){
+  if(!conn||authProblem||refreshing||document.visibilityState!=="visible")return;
+  refreshing=true;
+  try{
+    const fm=await fetchFile("meta.json",cache.meta?.etag);
+    if(!fm.unchanged){storeMeta(fm);if(rebuildMeta())requestRender();}
+    const Y=state.y,fy=await fetchFile(yPath(Y),cache.years[Y]?.etag);
+    if(!fy.unchanged){storeYear(Y,fy);if(rebuildYear(Y))requestRender();}
+    netOk();
+    if(hasOutbox())syncAll();
+  }catch(e){onNetError(e);}
+  finally{refreshing=false;updateSync();}
+}
+async function allYearsData(){
+  const years=new Set(Object.keys(outbox.years).map(Number));
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(K.yearPrefix))years.add(+k.slice(K.yearPrefix.length));}
+  try{
+    const r=await gh("GET","contents/jahre");
+    if(r.ok){for(const f of await r.json()){const mm=/^(\d{4})\.json$/.exec(f.name||"");if(mm)years.add(+mm[1]);}}
+    else if(r.status!==404)throw await httpErr(r);
+    for(const Y of years){storeYear(Y,await fetchFile(yPath(Y),cache.years[Y]?.etag));}
+  }catch(e){
+    for(const Y of years)if(!cache.years[Y]){const c=lsJSON(K.yearPrefix+Y);if(c)cache.years[Y]=c;}
+    toast("Offline: Das Backup enthält den Stand dieses Geräts.");
+  }
+  const months={};
+  for(const Y of years)Object.assign(months,applyYearPatches(cache.years[Y]?.data,outbox.years[Y]).months);
+  return months;
+}
+
+/* ================= Status, lock ================= */
+function updateSync(){
+  const el=$("#sync");if(!el)return;
+  let s="ok",t="Gespeichert";
+  const pending=hasOutbox();
+  if(!conn){s="warn";t="Nicht verbunden";}
+  else if(authProblem){s="warn";t="Schlüssel ungültig";}
+  else if(offline){s="warn";t=pending?"Offline · wird später übertragen":"Offline";}
+  else if(!fetchedYears.has(state.y)||!metaLoaded){s="busy";t="Lädt …";}
+  else if(syncing||syncTimer){s="busy";t="Speichert …";}
+  else if(pending){s="warn";t="Nicht übertragen";}
+  else if(lastError){s="warn";t="Fehler beim Speichern";}
+  el.dataset.s=s;el.textContent=t;
+}
+function updateLock(){
+  const first=!metaLoaded||(!cache.years[state.y]&&!fetchedYears.has(state.y)&&!offline);
+  $("#main").inert=first;
+}
+function showNotice(msg){const n=$("#notice");n.textContent=msg;n.hidden=!msg;}
+
+/* ================= Rendering ================= */
+let pendingRender=false;
+function editing(){const a=document.activeElement;return !!(a&&a.matches&&a.matches("main input, main textarea"));}
+function requestRender(){if(editing()){pendingRender=true;return;}render();}
+document.addEventListener("focusout",()=>setTimeout(()=>{if(pendingRender&&!editing()){pendingRender=false;render();}},0));
+
+function render(){
+  if(!conn)return;
+  const noClients=!state.clients.length;
+  $("#onboard").hidden=!(metaLoaded&&noClients);
+  if(metaLoaded&&noClients&&!$("#ob-rate").value)$("#ob-rate").value=String(state.settings.rate);
+  $("#period-label").textContent=state.view==="month"?`${MONTHS[state.m-1]} ${state.y}`:String(state.y);
+  $("#tab-month").setAttribute("aria-pressed",String(state.view==="month"));
+  $("#tab-year").setAttribute("aria-pressed",String(state.view==="year"));
+  $("#view-month").hidden=noClients||state.view!=="month";
+  $("#view-year").hidden=noClients||state.view!=="year";
+  $("#prev").setAttribute("aria-label",state.view==="month"?"Vorheriger Monat":"Vorheriges Jahr");
+  $("#next").setAttribute("aria-label",state.view==="month"?"Nächster Monat":"Nächstes Jahr");
+  renderClientSel();
+  if(!noClients){if(state.view==="month")renderMonth();else renderYear();}
+  updateStamp();updateSync();updateLock();setHash();
+}
+function renderClientSel(){
+  const sel=$("#client-sel");
+  const vis=state.clients.filter(c=>!c.hidden||c.id===state.client);
+  sel.innerHTML=(state.clients.length?"":`<option value="">Kein Kunde</option>`)+
+    vis.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")+
+    (state.clients.length>1?`<option value="*">Alle Kunden</option>`:"")+
+    `<option value="__manage">Kunden verwalten …</option>`;
+  sel.value=state.client||"";
+}
+
+function renderMonth(){
+  const all=isAll();
+  $("#sheet").hidden=all;$("#all-month").hidden=!all;$("#m-clients-card").hidden=!all;
+  if(all)renderMonthAll();else renderMonthGrid();
+  renderMonthSummary();
+}
+function renderMonthGrid(){
+  const {y,m}=state,key=mk(state.client,y,m),md=getMonth(key),H=holidays(y);
+  const nd=daysIn(y,m),t=new Date();
+  const todayD=(t.getFullYear()===y&&t.getMonth()+1===m)?t.getDate():0;
+  let h=`<div class="row head" role="row"><span>Datum</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span class="r">Stunden</span><span>Notiz / Tätigkeit</span><span></span></div>`;
+  for(let d=1;d<=nd;d++){
+    const dd=pad(d),wd=new Date(y,m-1,d).getDay(),hol=H[`${pad(m)}-${dd}`];
+    const list=(md.days[dd]&&md.days[dd].length)?md.days[dd]:[blank()];
+    list.forEach((e,i)=>{
+      const cls=["row"];
+      if(wd===0||wd===6)cls.push("we");
+      if(hol)cls.push("hol");
+      if(d===todayD)cls.push("today");
+      if(i>0)cls.push("cont");
+      const mins=entryMin(e),dateTxt=`${WD[wd]}, ${dd}.${pad(m)}.`;
+      const delLbl=list.length>1?"Zeile entfernen":"Zeile leeren";
+      h+=`<div class="${cls.join(" ")}" role="row" data-d="${dd}" data-i="${i}">`+
+        `<div class="date">${i===0?`<b>${dateTxt}</b>${hol?`<small>${esc(hol)}</small>`:""}`:`<span class="sub">↳ ${dateTxt}</span>`}</div>`+
+        FIELDS.map((f,j)=>{const lbl=j%2?"Bis":"Von";return `<label class="f f-${f}"><span class="cap">${lbl}</span><input type="text" class="tm" inputmode="numeric" maxlength="5" placeholder="--:--" autocomplete="off" id="e-${dd}-${i}-${f}" data-f="${f}" value="${esc(e[f])}" aria-label="${dateTxt} ${lbl} (Block ${j<2?1:2})"></label>`;}).join("")+
+        `<div class="sum${mins?"":" zero"}" title="${fmtDec(mins)} h">${mins?fmtHM(mins):"–"}</div>`+
+        `<label class="f f-notiz"><span class="cap">Notiz / Tätigkeit</span><input type="text" id="e-${dd}-${i}-notiz" data-f="notiz" value="${esc(e.notiz)}" autocomplete="off" aria-label="${dateTxt} Notiz"></label>`+
+        `<div class="acts"><button type="button" class="mini" data-act="add" title="Weitere Zeile für diesen Tag" aria-label="Weitere Zeile am ${dateTxt}">+</button><button type="button" class="mini" data-act="del" title="${delLbl}" aria-label="${delLbl} am ${dateTxt}">×</button></div>`+
+        `</div>`;
+    });
+  }
+  $("#sheet").innerHTML=h;
+}
+function renderMonthAll(){
+  const {y,m}=state,rows=[];
+  state.clients.forEach((c,ci)=>{for(const [dd,e] of monthEntries(mk(c.id,y,m)))rows.push({dd,e,c,ci});});
+  rows.sort((a,b)=>a.dd.localeCompare(b.dd)||a.ci-b.ci);
+  if(!rows.length){$("#all-month-body").innerHTML=`<p class="empty">Noch keine Stunden in diesem Monat. Zum Eintragen oben einen Kunden wählen.</p>`;return;}
+  const times=e=>[[e.v1,e.b1],[e.v2,e.b2]].filter(([a,b])=>a||b).map(([a,b])=>`${a||"…"}–${b||"…"}`).join(", ");
+  $("#all-month-body").innerHTML=`<table><thead><tr><th>Datum</th><th>Kunde</th><th>Zeiten</th><th class="num">Stunden</th><th>Notiz</th></tr></thead><tbody>`+
+    rows.map(({dd,e,c})=>{const wd=new Date(y,m-1,+dd).getDay();return `<tr class="${wd===0||wd===6?"we":""}"><td class="mono">${WD[wd]}, ${dd}.${pad(m)}.</td><td><button type="button" class="link" data-open="${esc(c.id)}">${esc(c.name)}</button></td><td class="mono">${esc(times(e))}</td><td class="num">${fmtHM(entryMin(e))}</td><td class="wrap">${esc(e.notiz)}</td></tr>`;}).join("")+
+    `</tbody></table><p class="foot" style="padding-top:10px">Zum Bearbeiten auf den Kundennamen tippen.</p>`;
+}
+function monthStats(y,m){
+  let min=0,rev=0;const days=new Set(),per=new Map();
+  for(const cid of scopeIds()){
+    const key=mk(cid,y,m),rate=rateOf(key);
+    for(const [dd,e] of monthEntries(key)){const x=entryMin(e);min+=x;rev+=x/60*rate;if(x>0)days.add(dd);
+      const v=per.get(cid)||{min:0,rev:0};v.min+=x;v.rev+=x/60*rate;per.set(cid,v);}
+  }
+  return {min,rev,days:days.size,per};
+}
+function renderMonthSummary(){
+  const {y,m}=state,st=monthStats(y,m),all=isAll();
+  $("#m-sum-k").textContent=all?"Alle Kunden":"Monatsübersicht";
+  $("#m-hours").textContent=fmtHM(st.min);
+  $("#m-hours-dec").textContent=`${fmtDec(st.min)} h dezimal`;
+  $("#t-rate").hidden=all;$("#t-clients").hidden=!all;
+  if(all){$("#m-nclients").textContent=String([...st.per.values()].filter(v=>v.min>0).length);}
+  else{
+    const key=mk(state.client,y,m),rate=rateOf(key),ri=$("#m-rate");
+    if(document.activeElement!==ri)ri.value=String(rate);
+    $("#m-rate-wrap").hidden=!state.showMoney;$("#m-rate-mask").hidden=state.showMoney;
+    const own=typeof state.months[key]?.rate==="number";
+    $("#m-rate-note").innerHTML=!state.showMoney?`<button type="button" class="linkish" id="m-money-on">Beträge einblenden</button> zum Ändern`
+      :own?`Nur dieser Monat · <button type="button" class="linkish" id="m-rate-reset">auf ${esc(eur(baseRate(state.client)))} zurück</button>`:`Satz von ${esc(clientName(state.client))}`;
+  }
+  $("#m-rev").textContent=money(st.rev);
+  $("#m-days").textContent=`${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}`;
+  $("#m-net-k").textContent=`Netto (−${state.settings.deduct} %)`;
+  $("#m-net").textContent=money(netOf(st.rev));
+  $("#m-sum-line").textContent=state.showMoney?`${fmtHM(st.min)} h · ${eur(st.rev)} · Netto ${eur(netOf(st.rev))}`:`${fmtHM(st.min)} h · ${fmtDec(st.min)} h dezimal · ${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}`;
+  if(all)$("#m-clients").innerHTML=clientTable(st.per,st.min);
+}
+function clientTable(per,total){
+  const rows=[...per.entries()].filter(([,v])=>v.min>0).sort((a,b)=>b[1].min-a[1].min);
+  if(!rows.length)return `<p class="empty">Noch keine Stunden erfasst.</p>`;
+  const sm=state.showMoney;
+  return `<table><thead><tr><th>Kunde</th><th class="num">Stunden</th><th class="num">Dezimal</th>${sm?`<th class="num">Umsatz</th>`:""}<th>Anteil</th></tr></thead><tbody>`+
+    rows.map(([cid,v])=>`<tr><td><button type="button" class="link" data-open="${esc(cid)}">${esc(clientName(cid))}</button></td><td class="num">${fmtHM(v.min)}</td><td class="num">${fmtDec(v.min)}</td>${sm?`<td class="num">${eur(v.rev)}</td>`:""}<td class="barcell"><span style="width:${(v.min/Math.max(1,total)*100).toFixed(1)}%"></span></td></tr>`).join("")+
+    `</tbody></table>`;
+}
+
+const setT=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t;};
+function renderYear(){
+  const y=state.y,cur=new Date(),sm=state.showMoney,all=isAll();
+  $("#y-title").textContent=all?`Jahresumsatz ${y} – alle Kunden`:`Jahresumsatz ${y} – ${clientName(state.client)}`;
+  $("#y-clients-card").hidden=!all;
+  let rows="";
+  for(let m=1;m<=12;m++){
+    const isCur=cur.getFullYear()===y&&cur.getMonth()+1===m;
+    rows+=`<tr class="${isCur?"cur":""}"><th><button type="button" class="link" data-goto="${m}">${MONTHS[m-1]}</button></th>`+
+      `<td class="num" id="y-h-${m}"></td><td class="num" id="y-d-${m}"></td>`+
+      (sm?(all?"":`<td class="rate"><input type="number" id="y-rate-${m}" data-m="${m}" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz ${MONTHS[m-1]}"> €</td>`)+`<td class="num" id="y-r-${m}"></td><td class="num" id="y-n-${m}"></td>`:"")+
+      `<td class="barcell"><span id="y-b-${m}"></span></td></tr>`;
+  }
+  $("#year-table").innerHTML=`<table><thead><tr><th>Monat</th><th class="num">Stunden</th><th class="num">Dezimal</th>${sm?(all?"":`<th>Stundensatz</th>`)+`<th class="num">Umsatz</th><th class="num" id="y-net-th">Netto</th>`:""}<th>Verlauf</th></tr></thead><tbody>${rows}</tbody>`+
+    `<tfoot><tr><th>Summe</th><td class="num" id="y-th"></td><td class="num" id="y-td"></td>${sm?(all?"":"<td></td>")+`<td class="num" id="y-tr"></td><td class="num" id="y-tn"></td>`:""}<td></td></tr></tfoot></table>`;
+  fillYear();
+}
+function fillYear(){
+  const y=state.y,all=isAll(),data=[];
+  for(let m=1;m<=12;m++){const st=monthStats(y,m);const key=all?null:mk(state.client,y,m);
+    data.push({m,key,...st,rate:key?rateOf(key):null,own:key?typeof state.months[key]?.rate==="number":false});}
+  const maxMin=Math.max(1,...data.map(d=>d.min));
+  let tMin=0,tRev=0,tDays=0,active=0;const per=new Map();
+  for(const d of data){
+    tMin+=d.min;tRev+=d.rev;tDays+=d.days;if(d.min>0)active++;
+    for(const [cid,v] of d.per){const t=per.get(cid)||{min:0,rev:0};t.min+=v.min;t.rev+=v.rev;per.set(cid,t);}
+    setT(`y-h-${d.m}`,d.min?fmtHM(d.min):"–");setT(`y-d-${d.m}`,d.min?fmtDec(d.min):"–");
+    setT(`y-r-${d.m}`,eur(d.rev));setT(`y-n-${d.m}`,eur(netOf(d.rev)));
+    $(`#y-b-${d.m}`).style.width=(d.min/maxMin*100).toFixed(1)+"%";
+    const ri=document.getElementById(`y-rate-${d.m}`);
+    if(ri){if(document.activeElement!==ri)ri.value=String(d.rate);ri.classList.toggle("own",d.own);ri.title=d.own?"Eigener Satz für diesen Monat":"Satz des Kunden";}
+  }
+  setT("y-th",fmtHM(tMin));setT("y-td",fmtDec(tMin));setT("y-tr",eur(tRev));setT("y-tn",eur(netOf(tRev)));
+  setT("y-net-th",`Netto (−${state.settings.deduct} %)`);
+  $("#y-hours").textContent=fmtHM(tMin);$("#y-hours-dec").textContent=`${fmtDec(tMin)} h dezimal`;
+  $("#y-rev").textContent=money(tRev);
+  $("#y-avg").textContent=!active?"Noch keine Stunden erfasst":state.showMoney?`Ø ${eur(tRev/active)} pro Monat mit Stunden`:"Beträge ausgeblendet";
+  $("#y-net-k").textContent=`Netto (−${state.settings.deduct} %)`;$("#y-net").textContent=money(netOf(tRev));
+  $("#y-days").textContent=String(tDays);$("#y-months").textContent=`${active} von 12 Monaten`;
+  if(all)$("#y-clients").innerHTML=clientTable(per,tMin);
+}
+
+/* ================= Stamp (Kommen / Gehen) ================= */
+const stampClient=()=>isAll()?state.lastClient:state.client;
+function stampTarget(){
+  const t=new Date(),cid=stampClient();if(!cid)return null;
+  const key=mk(cid,t.getFullYear(),t.getMonth()+1),dd=pad(t.getDate());
+  const list=getMonth(key).days[dd]||[];
+  for(let i=0;i<list.length;i++)for(const f of FIELDS)if(!list[i][f])return {key,cid,dd,i,f};
+  return {key,cid,dd,i:list.length,f:"v1"};
+}
+function updateStamp(){
+  const t=stampTarget(),n=new Date(),b=$("#stamp");
+  b.disabled=!t;
+  const go=t&&t.f.startsWith("b");
+  b.firstChild.textContent=go?"Gehen":"Kommen";
+  b.querySelector(".clock").textContent=hhmm(n.getHours()*60+n.getMinutes());
+  b.title=t?`${go?"Arbeitsende":"Arbeitsbeginn"} jetzt für ${clientName(t.cid)} eintragen`:"Zuerst einen Kunden anlegen";
+}
+function doStamp(){
+  const t=stampTarget();if(!t)return;
+  const n=new Date(),val=hhmm(n.getHours()*60+n.getMinutes());
+  const md=ensureMonth(t.key);
+  const before=clone(md.days[t.dd]||[]);
+  const list=md.days[t.dd]||(md.days[t.dd]=[]);
+  while(list.length<=t.i)list.push(blank());
+  list[t.i][t.f]=val;
+  const label=t.f.startsWith("v")?"Kommen":"Gehen";
+  const y=n.getFullYear(),m=n.getMonth()+1;
+  if(state.view!=="month"||state.y!==y||state.m!==m)setPeriod(y,m,"month");
+  queueDay(t.key,t.dd);render();
+  const el=document.getElementById(`e-${t.dd}-${t.i}-${t.f}`);
+  if(el)el.closest(".row").scrollIntoView({block:"center",behavior:"smooth"});
+  toast(`${label} ${val} für ${clientName(t.cid)} eingetragen`,"Rückgängig",()=>{ensureMonth(t.key).days[t.dd]=before;queueDay(t.key,t.dd);render();});
+}
+
+/* ================= Events: grid ================= */
+$("#sheet").addEventListener("input",ev=>{
+  const inp=ev.target;if(!inp.matches("input[data-f]"))return;
+  const row=inp.closest(".row"),dd=row.dataset.d,i=+row.dataset.i,f=inp.dataset.f;
+  const key=mk(state.client,state.y,state.m),md=ensureMonth(key);
+  const list=md.days[dd]||(md.days[dd]=[]);
+  while(list.length<=i)list.push(blank());
+  if(FIELDS.includes(f)){const t=parseTime(inp.value);if(t===null)return;inp.classList.remove("bad");if(list[i][f]===t)return;list[i][f]=t;}
+  else list[i][f]=inp.value;
+  const mins=entryMin(list[i]),s=row.querySelector(".sum");
+  s.textContent=mins?fmtHM(mins):"–";s.classList.toggle("zero",!mins);s.title=`${fmtDec(mins)} h`;
+  renderMonthSummary();updateStamp();queueDay(key,dd);
+});
+$("#sheet").addEventListener("change",ev=>{
+  const inp=ev.target;
+  if(inp.matches("input.tm")){
+    const t=parseTime(inp.value);
+    if(t===null){inp.classList.add("bad");toast(`„${inp.value}“ ist keine gültige Uhrzeit. Beispiele: 8, 830, 17:30`);}
+    else{inp.classList.remove("bad");inp.value=t;}
+  }
+});
+$("#sheet").addEventListener("focusin",ev=>{if(ev.target.matches("input.tm"))try{ev.target.select();}catch(e){}});
+$("#sheet").addEventListener("keydown",ev=>{
+  if(ev.key!=="Enter"||!ev.target.matches("input[data-f]"))return;
+  ev.preventDefault();
+  const f=ev.target.dataset.f,row=ev.target.closest(".row");
+  let r=ev.shiftKey?row.previousElementSibling:row.nextElementSibling;
+  if(r&&r.classList.contains("head"))r=null;
+  const n=r&&r.querySelector(`input[data-f="${f}"]`);
+  if(n)n.focus();
+});
+$("#sheet").addEventListener("click",ev=>{
+  const b=ev.target.closest("button[data-act]");if(!b)return;
+  const row=b.closest(".row"),dd=row.dataset.d,i=+row.dataset.i;
+  const key=mk(state.client,state.y,state.m),md=ensureMonth(key);
+  const before=clone(md.days[dd]||[]);
+  const list=md.days[dd]||(md.days[dd]=[]);
+  while(list.length<=i)list.push(blank());
+  if(b.dataset.act==="add"){list.splice(i+1,0,blank());render();const n=document.getElementById(`e-${dd}-${i+1}-v1`);if(n)n.focus();return;}
+  const had=!isBlankEntry(list[i]);
+  if(list.length>1)list.splice(i,1);else list[0]=blank();
+  render();queueDay(key,dd);
+  if(had)toast("Zeile gelöscht","Rückgängig",()=>{ensureMonth(key).days[dd]=before;queueDay(key,dd);render();});
+});
+document.addEventListener("click",ev=>{
+  const o=ev.target.closest("button[data-open]");
+  if(o&&o.closest("main")){setClient(o.dataset.open);window.scrollTo({top:0});}
+});
+
+/* Month rate */
+function setMonthRate(key,raw){
+  const v=raw===""?null:numOr(raw,null);
+  const md=ensureMonth(key),base=baseRate(parseKey(key).cid);
+  md.rate=(v==null||v<0||v===base)?null:Math.round(v*100)/100;
+  queueRate(key);
+}
+$("#m-rate").addEventListener("change",ev=>{setMonthRate(mk(state.client,state.y,state.m),ev.target.value);renderMonthSummary();});
+$("#month-tiles").addEventListener("click",ev=>{
+  if(ev.target.id==="m-rate-reset"){setMonthRate(mk(state.client,state.y,state.m),"");renderMonthSummary();}
+  if(ev.target.id==="m-money-on")setMoney(true);
+});
+try{if(lsGet(K.sum)==="1")$("#m-sumbox").open=true;}catch(e){}
+$("#m-sumbox").addEventListener("toggle",ev=>lsSet(K.sum,ev.target.open?"1":"0"));
+function setMoney(on){
+  state.showMoney=on;
+  const b=$("#money-btn");b.setAttribute("aria-pressed",String(on));
+  const l=on?"Beträge ausblenden":"Beträge einblenden";b.setAttribute("aria-label",l);b.title=l;
+  if(state.clients.length){if(state.view==="month")renderMonthSummary();else renderYear();}
+}
+$("#money-btn").addEventListener("click",()=>setMoney(!state.showMoney));
+
+/* Year view */
+$("#year-table").addEventListener("change",ev=>{
+  const inp=ev.target;if(!inp.matches("input[data-m]"))return;
+  setMonthRate(mk(state.client,state.y,+inp.dataset.m),inp.value);fillYear();
+});
+$("#year-table").addEventListener("click",ev=>{
+  const b=ev.target.closest("button[data-goto]");if(!b)return;
+  state.view="month";state.m=+b.dataset.goto;render();window.scrollTo({top:0});
+});
+
+/* ================= Navigation ================= */
+function setClient(id){
+  if(id!=="*"&&!clientById(id))return;
+  state.client=id;lsSet(K.client,id);
+  if(id!=="*"){state.lastClient=id;lsSet(K.last,id);}
+  render();
+}
+$("#client-sel").addEventListener("change",ev=>{
+  const v=ev.target.value;
+  if(v==="__manage"){ev.target.value=state.client||"";openClients();return;}
+  setClient(v);
+});
+function setPeriod(y,m,view){
+  const oy=state.y;state.y=y;state.m=m;if(view)state.view=view;
+  if(oy!==y&&conn)loadYear(y);
+  render();
+}
+$("#tab-month").addEventListener("click",()=>{state.view="month";render();});
+$("#tab-year").addEventListener("click",()=>{state.view="year";render();});
+$("#prev").addEventListener("click",()=>{
+  if(state.view==="year")return setPeriod(state.y-1,state.m);
+  state.m===1?setPeriod(state.y-1,12):setPeriod(state.y,state.m-1);
+});
+$("#next").addEventListener("click",()=>{
+  if(state.view==="year")return setPeriod(state.y+1,state.m);
+  state.m===12?setPeriod(state.y+1,1):setPeriod(state.y,state.m+1);
+});
+$("#today-btn").addEventListener("click",()=>{
+  const t=new Date();setPeriod(t.getFullYear(),t.getMonth()+1,"month");
+  const el=document.querySelector(".row.today");if(el)el.scrollIntoView({block:"center"});
+});
+$("#stamp").addEventListener("click",doStamp);
+setInterval(updateStamp,20000);
+function setHash(){
+  const h=state.view==="month"?`monat-${state.y}-${pad(state.m)}`:`jahr-${state.y}`;
+  if(location.hash.slice(1)!==h){try{history.replaceState(null,"","#"+h);}catch(e){}}
+}
+function readHash(){
+  const h=location.hash.slice(1);
+  let r=/^monat-(\d{4})-(\d{2})$/.exec(h);
+  if(r){state.view="month";state.y=+r[1];state.m=Math.min(12,Math.max(1,+r[2]));return true;}
+  r=/^jahr-(\d{4})$/.exec(h);
+  if(r){state.view="year";state.y=+r[1];return true;}
+  return false;
+}
+window.addEventListener("hashchange",()=>{const oy=state.y;if(!readHash())return;if(oy!==state.y&&conn)loadYear(state.y);render();});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden"){if(hasOutbox()&&!syncing)syncAll();}
+  else{updateStamp();refresh();}
+});
+window.addEventListener("online",()=>{offline=false;updateSync();if(hasOutbox())syncAll();refresh();});
+window.addEventListener("offline",()=>{offline=true;updateSync();});
+setInterval(refresh,60000);
+
+/* ================= Overlays, toast ================= */
+function openOv(id){$(id).hidden=false;const f=$(id).querySelector("input,select,button");if(f)f.focus();}
+function closeOv(el){el.hidden=true;}
+document.querySelectorAll(".overlay").forEach(ov=>{
+  ov.addEventListener("click",ev=>{if(ev.target===ov||ev.target.closest("[data-close]")){if(ov.id==="ov-confirm")cfResolve(false);closeOv(ov);}});
+});
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape")document.querySelectorAll(".overlay:not([hidden])").forEach(o=>{if(o.id==="ov-confirm")cfResolve(false);closeOv(o);});});
+let toastTimer=null;
+function toast(msg,actLabel,actFn){
+  const t=$("#toast");t.textContent="";
+  const s=document.createElement("span");s.textContent=msg;t.append(s);
+  if(actLabel){const b=document.createElement("button");b.type="button";b.className="toast-act";b.textContent=actLabel;b.onclick=()=>{t.hidden=true;actFn();};t.append(b);}
+  t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},actLabel?7000:5000);
+}
+let cfRes=null;
+function cfResolve(v){if(cfRes){const r=cfRes;cfRes=null;r(v);}}
+function confirmBox(title,text,ok){
+  $("#cf-h").textContent=title;$("#cf-text").textContent=text;$("#cf-yes").textContent=ok||"OK";
+  $("#ov-confirm").hidden=false;$("#cf-yes").focus();
+  return new Promise(res=>{cfRes=res;});
+}
+$("#cf-yes").addEventListener("click",()=>{$("#ov-confirm").hidden=true;cfResolve(true);});
+$("#cf-no").addEventListener("click",()=>{$("#ov-confirm").hidden=true;cfResolve(false);});
+
+/* ================= Clients ================= */
+function addClient(name,rate){
+  name=String(name||"").trim().slice(0,80);
+  if(!name){toast("Bitte einen Namen eingeben.");return null;}
+  if(state.clients.some(c=>c.name.toLowerCase()===name.toLowerCase())){toast(`„${name}“ gibt es schon.`);return null;}
+  const c={id:newClientId(),name,rate:numOr(rate,state.settings.rate),hidden:false};
+  state.clients.push(c);queueMeta("clients");
+  return c;
+}
+function openClients(){renderClientList();$("#cl-new-rate").value=String(state.settings.rate);openOv("#ov-clients");}
+function renderClientList(){
+  $("#cl-list").innerHTML=state.clients.length?state.clients.map(c=>`<div class="cl-row" data-id="${esc(c.id)}">
+    <input type="text" class="cl-name" id="cl-name-${esc(c.id)}" value="${esc(c.name)}" aria-label="Name">
+    <input type="number" class="cl-rate" id="cl-rate-${esc(c.id)}" value="${esc(c.rate)}" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz von ${esc(c.name)}"><span class="unit">€/h</span>
+    <label><input type="checkbox" class="cl-hide" id="cl-hide-${esc(c.id)}" ${c.hidden?"checked":""}> ausblenden</label></div>`).join("")
+    :`<p class="foot">Noch keine Kunden.</p>`;
+}
+$("#cl-list").addEventListener("change",ev=>{
+  const row=ev.target.closest(".cl-row");if(!row)return;
+  const c=clientById(row.dataset.id);if(!c)return;
+  if(ev.target.classList.contains("cl-name")){
+    const n=ev.target.value.trim();
+    if(!n||state.clients.some(x=>x!==c&&x.name.toLowerCase()===n.toLowerCase())){toast(n?`„${n}“ gibt es schon.`:"Der Name darf nicht leer sein.");ev.target.value=c.name;return;}
+    c.name=n.slice(0,80);
+  }else if(ev.target.classList.contains("cl-rate")){
+    const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(c.rate);return;}c.rate=Math.round(v*100)/100;
+  }else if(ev.target.classList.contains("cl-hide")){
+    if(ev.target.checked&&state.clients.filter(x=>!x.hidden).length<=1){ev.target.checked=false;toast("Mindestens ein Kunde muss sichtbar bleiben.");return;}
+    c.hidden=ev.target.checked;
+    if(c.hidden&&state.client===c.id){const v=state.clients.find(x=>!x.hidden);if(v)state.client=v.id;}
+  }
+  queueMeta("clients");render();
+});
+$("#cl-add").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const c=addClient($("#cl-new-name").value,$("#cl-new-rate").value);if(!c)return;
+  $("#cl-new-name").value="";renderClientList();setClient(c.id);toast(`${c.name} angelegt.`);
+});
+$("#ob-form").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const c=addClient($("#ob-name").value,$("#ob-rate").value);if(!c)return;
+  $("#ob-name").value="";setClient(c.id);
+});
+$("#onboard").addEventListener("click",ev=>{
+  const b=ev.target.closest(".chip");if(!b)return;
+  const c=addClient(b.dataset.name,$("#ob-rate").value);if(c)setClient(c.id);
+});
+
+/* ================= Settings ================= */
+$("#settings-btn").addEventListener("click",()=>{
+  $("#set-name").value=state.settings.name;$("#set-info").value=state.settings.info;
+  $("#set-rate").value=String(state.settings.rate);$("#set-deduct").value=String(state.settings.deduct);
+  $("#conn-info").textContent=conn?`Verbunden mit dem Repo ${conn.repo}. Jede Änderung wird dort als Version gespeichert.`:"";
+  openOv("#ov-settings");
+});
+$("#set-name").addEventListener("change",ev=>{state.settings.name=ev.target.value.trim().slice(0,120);queueMeta("settings");});
+$("#set-info").addEventListener("change",ev=>{state.settings.info=ev.target.value.trim().slice(0,500);queueMeta("settings");});
+$("#set-rate").addEventListener("change",ev=>{
+  const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(state.settings.rate);return;}
+  state.settings.rate=Math.round(v*100)/100;queueMeta("settings");render();
+});
+$("#set-deduct").addEventListener("change",ev=>{
+  const v=numOr(ev.target.value,null);if(v==null||v<0||v>100){ev.target.value=String(state.settings.deduct);return;}
+  state.settings.deduct=v;queueMeta("settings");render();
+});
+$("#open-clients").addEventListener("click",()=>{closeOv($("#ov-settings"));openClients();});
+$("#conn-change").addEventListener("click",()=>{closeOv($("#ov-settings"));showConnect(true);});
+$("#conn-off").addEventListener("click",async()=>{
+  const ok=await confirmBox("Von diesem Gerät trennen",hasOutbox()?"Es gibt noch Änderungen, die nicht übertragen wurden – sie gehen auf diesem Gerät verloren. Trotzdem trennen?":"Schlüssel und zwischengespeicherte Daten werden von diesem Gerät entfernt. Deine Daten im GitHub-Repo bleiben erhalten.","Trennen");
+  if(!ok)return;
+  clearDevice();location.reload();
+});
+function clearDevice(){
+  const del=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith("st:"))del.push(k);}
+  del.forEach(lsDel);
+}
+
+/* ================= Files ================= */
+async function deliver(filename,blob){
+  try{
+    const f=new File([blob],filename,{type:blob.type||"application/octet-stream"});
+    if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:filename});return;}
+  }catch(e){if(e&&e.name==="AbortError")return;}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+const loaded={};
+function loadScript(src){
+  if(!loaded[src])loaded[src]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>{delete loaded[src];rej(new Error(`${src} konnte nicht geladen werden – Internetverbindung prüfen.`));};document.head.append(s);});
+  return loaded[src];
+}
+
+/* ================= Export ================= */
+$("#export-btn").addEventListener("click",()=>{
+  const sel=$("#ex-client");
+  sel.innerHTML=state.clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")+(state.clients.length>1?`<option value="*">Alle Kunden</option>`:"");
+  sel.value=state.client||state.clients[0]?.id||"";
+  $("#ex-pdf-t").textContent=`PDF-Stundennachweis – ${MONTHS[state.m-1]} ${state.y}`;
+  $("#ex-xlsx-t").textContent=`Excel – Jahr ${state.y}`;
+  $("#ex-pdf").disabled=$("#ex-xlsx").disabled=!state.clients.length;
+  openOv("#ov-export");
+});
+const exIds=()=>{const v=$("#ex-client").value;return v==="*"?state.clients.map(c=>c.id):[v];};
+const exLabel=()=>{const v=$("#ex-client").value;return v==="*"?"Alle_Kunden":safeName(clientName(v));};
+
+async function buildPdf(ids,y,m,withMoney){
+  await loadScript("lib/jspdf.umd.min.js");await loadScript("lib/jspdf.plugin.autotable.min.js");
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const me=[state.settings.name,...String(state.settings.info||"").split(/\r?\n/)].map(s=>String(s||"").trim()).filter(Boolean);
+  ids.forEach((cid,idx)=>{
+    if(idx)doc.addPage();
+    const key=mk(cid,y,m),ents=monthEntries(key),rate=rateOf(key);
+    const total=ents.reduce((t,[,e])=>t+entryMin(e),0);
+    doc.setTextColor(20,32,28);
+    doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("Stundennachweis",20,22);
+    doc.setFont("helvetica","normal");doc.setFontSize(12);doc.text(`${MONTHS[m-1]} ${y}`,190,22,{align:"right"});
+    doc.setDrawColor(13,107,87);doc.setLineWidth(.6);doc.line(20,26,190,26);
+    let yy=34;
+    doc.setFontSize(8.5);doc.setTextColor(95,110,105);doc.text("AUFTRAGGEBER",20,yy);doc.text("AUFTRAGNEHMER",110,yy);
+    doc.setFontSize(11);doc.setTextColor(20,32,28);
+    doc.setFont("helvetica","bold");doc.text(clientName(cid),20,yy+6);
+    const meLines=me.length?me:["(Name in den Einstellungen eintragen)"];
+    doc.text(meLines[0],110,yy+6);doc.setFont("helvetica","normal");doc.setFontSize(10);
+    meLines.slice(1).forEach((l,i)=>doc.text(l,110,yy+11+i*4.6));
+    yy+=Math.max(14,11+(meLines.length-1)*4.6+6);
+    const body=ents.map(([dd,e])=>{const wd=new Date(y,m-1,+dd).getDay();return [`${WD[wd]}, ${dd}.${pad(m)}.${y}`,e.v1,e.b1,e.v2,e.b2,fmtHM(entryMin(e)),e.notiz];});
+    doc.autoTable({startY:yy,head:[["Datum","Von","Bis","Von","Bis","Stunden","Tätigkeit / Notiz"]],
+      body:body.length?body:[["Keine Einträge in diesem Monat","","","","","",""]],
+      foot:[["Summe","","","","",fmtHM(total),`${fmtDec(total)} h dezimal`]],
+      theme:"grid",margin:{left:20,right:20},
+      styles:{font:"helvetica",fontSize:9,cellPadding:1.8,lineColor:[214,222,219],lineWidth:.2,textColor:[20,32,28],valign:"middle"},
+      headStyles:{fillColor:[13,107,87],textColor:255,fontStyle:"bold"},
+      footStyles:{fillColor:[223,238,233],textColor:[20,32,28],fontStyle:"bold"},
+      columnStyles:{0:{cellWidth:30},1:{cellWidth:13,halign:"center"},2:{cellWidth:13,halign:"center"},3:{cellWidth:13,halign:"center"},4:{cellWidth:13,halign:"center"},5:{cellWidth:17,halign:"right"},6:{cellWidth:"auto"}},
+      didParseCell:d=>{if(d.section==="body"&&!body.length&&d.column.index===0)d.cell.colSpan=7;if(d.section==="foot"&&d.column.index===5)d.cell.styles.halign="right";}
+    });
+    let fy=doc.lastAutoTable.finalY+8;
+    doc.setFontSize(10);doc.setTextColor(20,32,28);
+    if(withMoney){
+      doc.text(`Stundensatz: ${eur(rate)}`,20,fy);
+      doc.setFont("helvetica","bold");doc.text(`Betrag: ${fmtDec(total)} h × ${eur(rate)} = ${eur(total/60*rate)}`,20,fy+5.5);doc.setFont("helvetica","normal");
+      fy+=12;
+    }
+    if(fy>250){doc.addPage();fy=30;}
+    const sy=Math.max(fy+22,0);
+    doc.setDrawColor(120,130,126);doc.setLineWidth(.3);
+    doc.line(20,sy,95,sy);doc.line(115,sy,190,sy);
+    doc.setFontSize(8.5);doc.setTextColor(95,110,105);
+    doc.text("Datum, Unterschrift Auftragnehmer",20,sy+4.5);doc.text(`Datum, Unterschrift ${clientName(cid)}`,115,sy+4.5);
+  });
+  const n=doc.getNumberOfPages(),t=new Date();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(140,150,146);doc.text(`Erstellt am ${pad(t.getDate())}.${pad(t.getMonth()+1)}.${t.getFullYear()} · Seite ${i} von ${n}`,105,290,{align:"center"});}
+  return doc.output("blob");
+}
+$("#ex-pdf").addEventListener("click",async()=>{
+  const ids=exIds(),label=exLabel(),{y,m}=state,withMoney=$("#ex-money").checked;
+  closeOv($("#ov-export"));
+  try{
+    if(!state.settings.name)toast("Tipp: Unter ⚙ deinen Namen eintragen, er erscheint dann im PDF.");
+    const blob=await buildPdf(ids,y,m,withMoney);
+    await deliver(`Stundennachweis_${label}_${y}-${pad(m)}.pdf`,blob);
+  }catch(e){toast("PDF fehlgeschlagen: "+(e&&e.message||e));}
+});
+
+async function buildXlsx(Y,ids){
+  await loadScript("lib/exceljs.min.js");
+  const ExcelJS=window.ExcelJS;
+  const wb=new ExcelJS.Workbook();wb.creator="Stundentabelle";wb.created=new Date();
+  const deduct=state.settings.deduct,H=holidays(Y),single=ids.length===1;
+  const headFill={type:"pattern",pattern:"solid",fgColor:{argb:"FF0D6B57"}};
+  const weFill={type:"pattern",pattern:"solid",fgColor:{argb:"FFEAF0ED"}};
+  const holFill={type:"pattern",pattern:"solid",fgColor:{argb:"FFFBF1DF"}};
+  const styleHead=row=>row.eachCell(c=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill=headFill;});
+  const ys=wb.addWorksheet("Jahresumsatz",{views:[{state:"frozen",ySplit:2}]});
+  const sums=[];
+  for(let m=1;m<=12;m++){
+    const name=MONTHS[m-1];
+    const ws=wb.addWorksheet(name,{views:[{state:"frozen",ySplit:1}]});
+    ws.columns=[{width:30},{width:9},{width:9},{width:9},{width:9},{width:15},{width:24},{width:44}];
+    const hr=ws.getRow(1);hr.values=["Datum","Von","Bis","Von","Bis","Summe Stunden","Kunde","Notiz"];styleHead(hr);
+    let r=2,tot=0,rev=0;
+    for(let d=1;d<=daysIn(Y,m);d++){
+      const dd=pad(d),wd=new Date(Y,m-1,d).getDay(),hol=H[`${pad(m)}-${dd}`];
+      let list=[];
+      for(const cid of ids){const key=mk(cid,Y,m);for(const e of cleanList(getMonth(key).days[dd]))list.push({e,cid,rate:rateOf(key)});}
+      if(!list.length)list=[{e:blank(),cid:null,rate:0}];
+      for(const {e,cid,rate} of list){
+        const row=ws.getRow(r);
+        const a=row.getCell(1);a.value=new Date(Date.UTC(Y,m-1,d));a.numFmt='[$-407]dddd, dd. mmmm yyyy';
+        FIELDS.forEach((f,j)=>{const c=row.getCell(2+j);const t=toMin(e[f]);if(t!=null)c.value=t/1440;c.numFmt="hh:mm";});
+        const mins=entryMin(e);tot+=mins;rev+=mins/60*rate;
+        const F=row.getCell(6);
+        F.value={formula:`IF(COUNT(B${r}:C${r})=2,MOD(C${r}-B${r},1),0)+IF(COUNT(D${r}:E${r})=2,MOD(E${r}-D${r},1),0)`,result:mins/1440};F.numFmt="[h]:mm";
+        if(cid)row.getCell(7).value=clientName(cid);
+        if(e.notiz)row.getCell(8).value=e.notiz;
+        if(hol||wd===0||wd===6)for(let c=1;c<=8;c++)row.getCell(c).fill=hol?holFill:weFill;
+        r++;
+      }
+    }
+    const sr=ws.getRow(r);
+    sr.getCell(5).value="Summe";sr.getCell(5).font={bold:true};
+    sr.getCell(6).value={formula:`SUM(F2:F${r-1})`,result:tot/1440};sr.getCell(6).numFmt="[h]:mm";sr.getCell(6).font={bold:true};
+    const rate=single?rateOf(mk(ids[0],Y,m)):(tot?Math.round(rev/(tot/60)*100)/100:state.settings.rate);
+    sums.push({ref:`'${name}'!F${r}`,min:tot,rate});
+  }
+  ys.columns=[{width:18},{width:12},{width:16},{width:16},{width:30}];
+  ys.getCell("A1").value=`Jahresumsatz ${Y} – ${single?clientName(ids[0]):"alle Kunden"}`;ys.getCell("A1").font={bold:true,size:14};
+  const yh=ys.getRow(2);yh.values=["","Stunden",single?"Stundenlohn":"Ø Stundenlohn","Umsatz",`Umsatz ohne Steuern (-${deduct}%)`];styleHead(yh);
+  const money='#,##0.00 "€";[Red]-#,##0.00 "€"';
+  let tMin=0,tRev=0;
+  sums.forEach((s,i)=>{
+    const r=3+i,row=ys.getRow(r),rev=s.min/60*s.rate;tMin+=s.min;tRev+=rev;
+    row.getCell(1).value=new Date(Date.UTC(Y,i,1));row.getCell(1).numFmt='[$-407]mmmm yy';
+    row.getCell(2).value={formula:s.ref,result:s.min/1440};row.getCell(2).numFmt="[h]:mm";
+    row.getCell(3).value=s.rate;row.getCell(3).numFmt=money;
+    row.getCell(4).value={formula:`B${r}*C${r}*24`,result:rev};row.getCell(4).numFmt=money;
+    row.getCell(5).value={formula:`D${r}-(D${r}*${deduct}%)`,result:rev*(1-deduct/100)};row.getCell(5).numFmt=money;
+  });
+  const tr=ys.getRow(15);
+  tr.getCell(1).value="Summe";
+  tr.getCell(2).value={formula:"SUM(B3:B14)",result:tMin/1440};tr.getCell(2).numFmt="[h]:mm";
+  tr.getCell(4).value={formula:"SUM(D3:D14)",result:tRev};tr.getCell(4).numFmt=money;
+  tr.getCell(5).value={formula:"SUM(E3:E14)",result:tRev*(1-deduct/100)};tr.getCell(5).numFmt=money;
+  tr.eachCell(c=>{c.font={bold:true};c.border={top:{style:"thin"}};});
+  return wb.xlsx.writeBuffer();
+}
+$("#ex-xlsx").addEventListener("click",async()=>{
+  const ids=exIds(),label=exLabel(),Y=state.y;
+  closeOv($("#ov-export"));
+  try{toast("Excel-Datei wird erstellt …");const buf=await buildXlsx(Y,ids);await deliver(`Stundentabelle_${label}_${Y}.xlsx`,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));}
+  catch(e){toast("Excel-Export fehlgeschlagen: "+(e&&e.message||e));}
+});
+$("#ex-json").addEventListener("click",async()=>{
+  closeOv($("#ov-export"));
+  try{
+    const months=await allYearsData(),t=new Date();
+    const data={app:"Stundentabelle",version:2,exportedAt:t.toISOString(),clients:state.clients,settings:state.settings,months};
+    await deliver(`Stundentabelle_Backup_${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}.json`,new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));
+  }catch(e){toast("Backup fehlgeschlagen: "+(e&&e.message||e));}
+});
+
+/* ================= Import ================= */
+function cellDate(v){
+  if(v==null||v==="")return null;
+  if(typeof v==="string"){
+    const s=v.trim();let r=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(s);if(r)return{y:+r[3],m:+r[2],d:+r[1]};
+    r=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);if(r)return{y:+r[1],m:+r[2],d:+r[3]};return null;
+  }
+  if(typeof v!=="number"||v<20000||v>80000)return null;
+  const dt=new Date(Math.floor((Date.UTC(1899,11,30)+v*864e5+60000)/864e5)*864e5);
+  return {y:dt.getUTCFullYear(),m:dt.getUTCMonth()+1,d:dt.getUTCDate()};
+}
+function cellTime(v){
+  if(v==null||v==="")return "";
+  let min=null;
+  if(typeof v==="number")min=Math.round((((v%1)+1)%1)*1440);
+  else if(typeof v==="string"){const t=parseTime(v);return t||"";}
+  if(min==null||isNaN(min))return "";
+  return hhmm(min%1440);
+}
+const cellText=v=>v==null?"":String(v).trim();
+async function unzip(buf){
+  const u8=new Uint8Array(buf),dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength),dec=new TextDecoder();
+  let eocd=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-65557);i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error("Das ist keine gültige Excel-Datei (.xlsx).");
+  const n=dv.getUint16(eocd+10,true);let p=dv.getUint32(eocd+16,true);
+  const files={};
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50)throw new Error("Die Excel-Datei ist beschädigt.");
+    const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nlen=dv.getUint16(p+28,true),xlen=dv.getUint16(p+30,true),clen=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    files[dec.decode(u8.subarray(p+46,p+46+nlen)).replace(/^\//,"")]={method,csize,off};
+    p+=46+nlen+xlen+clen;
+  }
+  return async name=>{
+    const f=files[name];if(!f)return null;
+    const start=f.off+30+dv.getUint16(f.off+26,true)+dv.getUint16(f.off+28,true);
+    const data=u8.subarray(start,start+f.csize);
+    if(f.method===0)return dec.decode(data);
+    if(f.method!==8)throw new Error("Diese Excel-Datei ist ungewöhnlich gepackt.");
+    if(typeof DecompressionStream==="undefined")throw new Error("Dein Browser kann die Datei nicht entpacken. Bitte Browser aktualisieren.");
+    return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+  };
+}
+const colIdx=s=>[...s].reduce((n,ch)=>n*26+ch.charCodeAt(0)-64,0);
+async function readXlsx(buf){
+  const read=await unzip(buf);
+  const P=x=>new DOMParser().parseFromString(x,"application/xml");
+  const tags=(node,name)=>Array.from(node.getElementsByTagNameNS("*",name));
+  const wbx=P((await read("xl/workbook.xml"))||"<x/>");
+  const sheetEls=tags(wbx,"sheet");
+  if(!sheetEls.length)throw new Error("In der Datei wurden keine Tabellenblätter gefunden.");
+  const d1904=tags(wbx,"workbookPr").some(e=>/^(1|true)$/.test(e.getAttribute("date1904")||""));
+  const rels={},rx=await read("xl/_rels/workbook.xml.rels");
+  if(rx)for(const r of tags(P(rx),"Relationship"))rels[r.getAttribute("Id")]=r.getAttribute("Target");
+  const ss=[],sx=await read("xl/sharedStrings.xml");
+  if(sx)for(const si of tags(P(sx),"si"))ss.push(tags(si,"t").filter(t=>t.parentNode.localName!=="rPh").map(t=>t.textContent).join(""));
+  const sheets=[];
+  for(const el of sheetEls){
+    const rid=el.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||el.getAttribute("r:id");
+    let target=rels[rid];if(!target)continue;
+    target=target.startsWith("/")?target.slice(1):"xl/"+target.replace(/^\.\//,"");
+    const x=await read(target);if(!x)continue;
+    const rows=[];
+    for(const row of tags(P(x),"row")){
+      const cells={};let ci=0;
+      for(const c of tags(row,"c")){
+        const ref=/^([A-Z]+)/.exec(c.getAttribute("r")||"");ci=ref?colIdx(ref[1]):ci+1;
+        const t=c.getAttribute("t")||"n",vEl=tags(c,"v")[0],v=vEl?vEl.textContent:null;
+        let val=null;
+        if(t==="s")val=v!=null?(ss[+v]??""):null;
+        else if(t==="inlineStr")val=tags(c,"t").map(e=>e.textContent).join("");
+        else if(t==="str"||t==="d")val=v;
+        else if(t==="b"||t==="e")val=null;
+        else val=v!=null&&v!==""?parseFloat(v):null;
+        cells[ci]=val;
+      }
+      rows.push(cells);
+    }
+    sheets.push({name:el.getAttribute("name")||"",rows});
+  }
+  return {sheets,d1904};
+}
+/* Returns {groups: Map(kundeName -> {"YYYY-MM": {days}}), ratesByMonth} */
+async function parseXlsx(buf){
+  const {sheets,d1904}=await readXlsx(buf);
+  const dv=v=>typeof v==="number"&&d1904?v+1462:v;
+  const groups=new Map(),ratesByMonth={};
+  for(const ws of sheets){
+    if(/jahres|umsatz/i.test(ws.name)){for(const r of ws.rows){const a=cellDate(dv(r[1]));if(a&&typeof r[3]==="number")ratesByMonth[a.m]=r[3];}continue;}
+    for(const r of ws.rows){
+      const dt=cellDate(dv(r[1]));if(!dt||dt.d<1||dt.d>31||dt.m<1||dt.m>12)continue;
+      const e={v1:cellTime(r[2]),b1:cellTime(r[3]),v2:cellTime(r[4]),b2:cellTime(r[5]),notiz:cellText(r[8])};
+      const kunde=cellText(r[7]);
+      if(isBlankEntry(e))continue;
+      const g=groups.get(kunde)||new Map();groups.set(kunde,g);
+      const ym=`${dt.y}-${pad(dt.m)}`;const mo=g.get(ym)||{days:{}};g.set(ym,mo);
+      (mo.days[pad(dt.d)]||(mo.days[pad(dt.d)]=[])).push(cleanEntry(e));
+    }
+  }
+  return {groups,ratesByMonth};
+}
+function fallbackClient(){return isAll()?state.lastClient:state.client;}
+async function importGroups(groups,ratesByMonth,title){
+  if(!groups.size){toast("In der Datei wurden keine Einträge gefunden.");return;}
+  const plan=[],toCreate=[];
+  for(const [name,months] of groups){
+    let c=name?state.clients.find(x=>x.name.toLowerCase()===name.toLowerCase()):clientById(fallbackClient());
+    let isNew=false;
+    if(!c){const nm=name||"Kunde 1";c=toCreate.find(x=>x.name===nm)||{id:null,name:nm};if(!toCreate.includes(c))toCreate.push(c);isNew=true;}
+    let n=0;for(const mo of months.values())for(const l of Object.values(mo.days))n+=l.length;
+    const yms=[...months.keys()].sort();
+    plan.push({c,months,n,isNew,range:`${MONTHS[+yms[0].slice(5)-1]} ${yms[0].slice(0,4)}${yms.length>1?` – ${MONTHS[+yms[yms.length-1].slice(5)-1]} ${yms[yms.length-1].slice(0,4)}`:""}`});
+  }
+  const text=plan.map(p=>`${p.c.name}${p.isNew?" (wird neu angelegt)":""}: ${p.n} ${p.n===1?"Eintrag":"Einträge"}, ${p.range}`).join(" · ");
+  const ok=await confirmBox(title,`${text}. Vorhandene Einträge dieser Kunden in diesen Monaten werden ersetzt.`,"Importieren");
+  if(!ok)return;
+  for(const c of toCreate){const nc=addClient(c.name,state.settings.rate);c.id=nc?nc.id:(state.clients.find(x=>x.name.toLowerCase()===c.name.toLowerCase())||{}).id;}
+  const singleClient=plan.length===1;
+  let last=null,total=0;
+  for(const p of plan){
+    const cid=p.c.id;if(!cid)continue;
+    for(const [ym,mo] of p.months){
+      const Y=+ym.slice(0,4),M=+ym.slice(5),key=mk(cid,Y,M);
+      const r=ratesByMonth&&singleClient?ratesByMonth[M]:undefined;
+      state.months[key]={rate:typeof r==="number"&&r!==baseRate(cid)?r:null,days:mo.days};
+      queueMonthReplace(key);
+      if(!last||key.slice(-7)>last.slice(-7))last=key;
+    }
+    total+=p.n;
+  }
+  saveOutbox();scheduleSync(300);
+  if(last){const k=parseKey(last);state.client=plan.length===1?plan[0].c.id:state.client;if(state.client!=="*")lsSet(K.client,state.client);setPeriod(k.y,k.m,"month");}
+  render();toast(`${total} Einträge übernommen – werden jetzt gespeichert.`);
+}
+$("#im-xlsx").addEventListener("click",()=>{$("#file-xlsx").value="";$("#file-xlsx").click();});
+$("#im-json").addEventListener("click",()=>{$("#file-json").value="";$("#file-json").click();});
+$("#file-xlsx").addEventListener("change",async ev=>{
+  const file=ev.target.files&&ev.target.files[0];if(!file)return;
+  closeOv($("#ov-settings"));
+  try{toast("Excel-Datei wird gelesen …");const {groups,ratesByMonth}=await parseXlsx(await file.arrayBuffer());await importGroups(groups,ratesByMonth,"Excel importieren");}
+  catch(e){toast("Import fehlgeschlagen: "+(e&&e.message||e));}
+});
+$("#file-json").addEventListener("change",async ev=>{
+  const file=ev.target.files&&ev.target.files[0];if(!file)return;
+  closeOv($("#ov-settings"));
+  try{
+    const o=JSON.parse(await file.text());
+    if(!o||typeof o!=="object"||!o.months||typeof o.months!=="object")throw new Error("Das ist keine Backup-Datei der Stundentabelle.");
+    if(o.version===2&&Array.isArray(o.clients)){
+      const keys=Object.keys(o.months).filter(validKey);
+      const when=o.exportedAt?new Date(o.exportedAt).toLocaleString("de-DE"):"unbekannt";
+      const ok=await confirmBox("Backup wiederherstellen",`Backup vom ${when}: ${o.clients.length} Kunden, ${keys.length} Monate. Kunden, Einstellungen und diese Monate werden ersetzt.`,"Wiederherstellen");
+      if(!ok)return;
+      state.clients=sanitizeClients(o.clients);if(o.settings)state.settings=sanitizeSettings(o.settings);
+      ensureActiveClient();queueMeta("clients");queueMeta("settings");
+      for(const k of keys){state.months[k]=normalize(o.months[k]);queueMonthReplace(k);}
+      saveOutbox();scheduleSync(300);render();toast("Backup wird wiederhergestellt.");
+    }else{
+      /* older single-table backup: entries carry the client name */
+      const groups=new Map();
+      for(const [ym,mo] of Object.entries(o.months)){
+        if(!/^\d{4}-\d{2}$/.test(ym))continue;
+        for(const [dd,list] of Object.entries(mo.days||{}))for(const e of (list||[])){
+          const name=String(e.kunde||"").trim();const g=groups.get(name)||new Map();groups.set(name,g);
+          const m2=g.get(ym)||{days:{}};g.set(ym,m2);(m2.days[dd]||(m2.days[dd]=[])).push(cleanEntry(e));
+        }
+      }
+      await importGroups(groups,null,"Backup übernehmen");
+    }
+  }catch(e){toast("Wiederherstellen fehlgeschlagen: "+(e&&e.message||e));}
+});
+
+/* ================= Connect ================= */
+function showConnect(changing){
+  $("#connect").hidden=false;$("#bar").hidden=true;$("#main").hidden=true;
+  $("#cn-repo").value=conn?.repo||lsGet(K.repo)||CFG.dataRepo||"";
+  $("#cn-token").value="";$("#cn-err").hidden=true;
+  $("#cn-cancel").hidden=!changing;
+  ($("#cn-repo").value?$("#cn-token"):$("#cn-repo")).focus();
+}
+function showApp(){$("#connect").hidden=true;$("#bar").hidden=false;$("#main").hidden=false;}
+$("#cn-cancel").addEventListener("click",()=>{if(conn)showApp();});
+$("#cn-form").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const err=$("#cn-err"),btn=$("#cn-btn");err.hidden=true;
+  let repo=$("#cn-repo").value.trim().replace(/^https?:\/\/github\.com\//i,"").replace(/\.git$/,"").replace(/\/+$/,"");
+  const token=$("#cn-token").value.trim();
+  const fail=m=>{err.textContent=m;err.hidden=false;};
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return fail("Repo bitte als Benutzer/Name angeben, z. B. Calliari6/stundentabelle-daten.");
+  if(!token)return fail("Bitte den GitHub-Schlüssel einfügen.");
+  btn.disabled=true;btn.textContent="Prüfe …";
+  try{
+    let r;
+    try{r=await fetch(`${API}/repos/${repo}`,{cache:"no-store",headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`}});}
+    catch(e){return fail("Keine Verbindung zu GitHub. Internet prüfen und erneut versuchen.");}
+    if(r.status===401)return fail("Der Schlüssel ist ungültig. Bitte vollständig kopieren (beginnt mit github_pat_ oder ghp_).");
+    if(r.status===404||r.status===403)return fail("Repo nicht gefunden. Prüfe den Namen und ob der Schlüssel Zugriff auf genau dieses Repo hat.");
+    if(!r.ok)return fail(`GitHub meldet Fehler ${r.status}. Bitte später erneut versuchen.`);
+    const j=await r.json();
+    if(!j.private){const ok=await confirmBox("Repo ist öffentlich","Dieses Repo ist öffentlich – deine Stunden wären für alle sichtbar. Trotzdem verwenden?","Trotzdem verbinden");if(!ok)return;}
+    const prev=lsGet(K.repo);
+    if(prev&&prev!==repo){clearDevice();outbox={seq:0,years:{},meta:null};cache.meta=null;cache.years={};state.months={};}
+    lsSet(K.repo,repo);lsSet(K.token,token);
+    conn={repo,token};authProblem=false;showNotice("");
+    showApp();await start();
+  }finally{btn.disabled=false;btn.textContent="Verbinden";}
+});
+
+/* ================= Start ================= */
+async function start(){
+  metaLoaded=false;fetchedYears.clear();
+  render();
+  await loadMeta();
+  render();
+  await loadYear(state.y);
+  render();
+  if(hasOutbox())syncAll();
+}
+readHash();
+conn=loadConn();
+if(window.STUNDEN_TEST&&window.STUNDEN_TEST.today){/* test hook: nothing */}
+if(conn){showApp();start();}else showConnect(false);
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
