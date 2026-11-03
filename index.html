@@ -1560,7 +1560,18 @@ $("#cn-form").addEventListener("submit",async ev=>{
     try{r=await fetch(`${API}/repos/${repo}`,{cache:"no-store",headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`}});}
     catch(e){return fail("Keine Verbindung zu GitHub. Internet prüfen und erneut versuchen.");}
     if(r.status===401)return fail("Der Schlüssel ist ungültig. Bitte vollständig kopieren (beginnt mit github_pat_ oder ghp_).");
-    if(r.status===404||r.status===403)return fail("Repo nicht gefunden. Prüfe den Namen und ob der Schlüssel Zugriff auf genau dieses Repo hat.");
+    if(r.status===404||r.status===403){
+      let hint="";
+      try{
+        const H={Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`};
+        const u=await fetch(`${API}/user`,{cache:"no-store",headers:H});
+        const login=u.ok?(await u.json()).login:"";
+        const rr=await fetch(`${API}/user/repos?per_page=100&sort=updated`,{cache:"no-store",headers:H});
+        const names=rr.ok?(await rr.json()).map(x=>x.full_name+(x.private?" (privat)":"")):[];
+        hint=names.length?` Dein Schlüssel${login?` (Konto ${login})`:""} sieht nur: ${names.slice(0,8).join(", ")}.`:` Dein Schlüssel${login?` (Konto ${login})`:""} hat auf kein Repo Zugriff.`;
+      }catch(e){}
+      return fail(`Kein Zugriff auf ${repo}.${hint} Lösung: Auf GitHub unter Settings → Developer settings → Fine-grained tokens den Schlüssel öffnen → Edit → bei „Repository access“ ${repo.split("/")[1]} auswählen und bei „Contents“ „Read and write“ einstellen → Update. Der Schlüssel bleibt gleich, danach hier nochmal „Verbinden“.`);
+    }
     if(!r.ok)return fail(`GitHub meldet Fehler ${r.status}. Bitte später erneut versuchen.`);
     const j=await r.json();
     if(!j.private){const ok=await confirmBox("Repo ist öffentlich","Dieses Repo ist öffentlich – deine Stunden wären für alle sichtbar. Trotzdem verwenden?","Trotzdem verbinden");if(!ok)return;}
