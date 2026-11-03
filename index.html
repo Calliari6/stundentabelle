@@ -103,8 +103,8 @@ main[inert]{opacity:.55}
 
 /* Day grid */
 .sheet{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
-.row{display:grid;grid-template-columns:150px repeat(4,78px) 70px minmax(240px,1fr) 66px;
-  align-items:center;gap:0 6px;padding:3px 10px;border-top:1px solid var(--line);min-width:880px}
+.row{display:grid;grid-template-columns:132px repeat(6,66px) 60px 66px 160px 60px 76px minmax(190px,1fr) 62px;
+  align-items:center;gap:0 5px;padding:3px 10px;border-top:1px solid var(--line);min-width:1310px}
 .row.head{border-top:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:9px 10px 7px}
 .row.head .r,.r{text-align:right}
 .row.we{background:var(--weekend)}
@@ -116,7 +116,13 @@ main[inert]{opacity:.55}
 .row input:hover{border-color:var(--line)}
 .row input:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 2px var(--accent-soft)}
 .row input.tm{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:center}
-.row input.tm::placeholder{color:var(--muted);opacity:.55}
+.row input.tm::placeholder,.row input.nm::placeholder{color:var(--muted);opacity:.55}
+.row input.nm{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right}
+.row select{width:100%;min-width:0;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 4px;color:var(--ink);cursor:pointer}
+.row select:hover{border-color:var(--line)}
+.row select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.row select.empty{color:var(--muted)}
+.row select.day{color:var(--accent);font-weight:600}
 .row input.bad{border-color:var(--danger) !important}
 .f{display:block;min-width:0}
 .cap{display:none}
@@ -163,12 +169,14 @@ td.rate input.own{border-color:var(--accent)}
 .onboard .cl-row{padding:0 14px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px 0}
 .chip{border:1px dashed var(--accent);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer;color:var(--accent)}
-#cl-list{display:grid;gap:8px}
+#cl-list,#pr-list{display:grid;gap:8px}
+.cl-row .cl-km{width:7ch}
+.cl-head{display:flex;gap:8px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 
 /* Overlays */
 .overlay{position:fixed;inset:0;background:rgb(0 0 0 / .38);display:grid;place-items:center;z-index:50;padding:16px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;max-width:480px;width:100%;padding:18px 20px;display:grid;gap:14px;max-height:90vh;overflow:auto}
-.panel.wide{max-width:620px}
+.panel.wide{max-width:760px}
 .panel h2{font:700 18px/1.2 var(--font-display);margin:0}
 .panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 0;font-weight:500}
 .panel p{margin:0;font-size:14px}
@@ -206,17 +214,17 @@ td.rate input.own{border-color:var(--accent)}
   .sheet{overflow:visible;background:transparent;border:0;display:grid;gap:8px}
   .row.head{display:none}
   .row{min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));
-    grid-template-areas:"date date sum acts" "v1 b1 v2 b2" "notiz notiz notiz notiz";
+    grid-template-areas:"date date sum acts" "v1 b1 v2 b2" "v3 b3 km sp" "proj proj proj tf" "notiz notiz notiz notiz";
     gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
   .row.cont{border-top:1px dashed var(--line)}
   .row .date{grid-area:date}
-  .f-v1{grid-area:v1}.f-b1{grid-area:b1}.f-v2{grid-area:v2}.f-b2{grid-area:b2}
+  .f-v1{grid-area:v1}.f-b1{grid-area:b1}.f-v2{grid-area:v2}.f-b2{grid-area:b2}.f-v3{grid-area:v3}.f-b3{grid-area:b3}
   .row .sum{grid-area:sum}
-  .f-notiz{grid-area:notiz}
+  .f-notiz{grid-area:notiz}.f-tf{grid-area:tf}.f-proj{grid-area:proj}.f-km{grid-area:km}.f-sp{grid-area:sp}
   .row .acts{grid-area:acts}
   .cap{display:block;font-size:11px;color:var(--muted);padding:0 0 1px 2px}
-  .row input{border-color:var(--line);background:var(--surface);padding:6px 5px}
-  .row.we input,.row.hol input{background:transparent}
+  .row input,.row select{border-color:var(--line);background:var(--surface);padding:6px 5px}
+  .row.we input,.row.hol input,.row.we select,.row.hol select{background:transparent}
 }
 @media (max-width:420px){
   .actions .btn{padding:7px 10px}
@@ -298,9 +306,11 @@ td.rate input.own{border-color:var(--accent)}
         <div class="tile" id="t-clients" hidden><span class="k">Kunden</span><span class="v" id="m-nclients">0</span><span class="s">mit Stunden in diesem Monat</span></div>
         <div class="tile"><span class="k">Umsatz</span><span class="v" id="m-rev">•••• €</span><span class="s" id="m-days">0 Arbeitstage</span></div>
         <div class="tile"><span class="k" id="m-net-k">Netto</span><span class="v" id="m-net">•••• €</span><span class="s">nach Abzug Steuern &amp; Beiträge</span></div>
+        <div class="tile"><span class="k">Kilometer &amp; Spesen</span><span class="v" id="m-km">0 km</span><span class="s" id="m-sp">Spesen 0,00 €</span></div>
       </div>
     </details>
     <div class="sheet" id="sheet" role="table" aria-label="Tage des Monats" style="margin-top:14px"></div>
+    <div class="card" id="m-proj-card" style="margin-top:14px" hidden><h2>Nach Projekt / Baustelle</h2><div id="m-proj"></div></div>
     <div class="card" id="all-month" style="margin-top:14px" hidden><h2>Alle Einträge</h2><div id="all-month-body"></div></div>
     <div class="card" id="m-clients-card" style="margin-top:14px" hidden><h2>Nach Kunde</h2><div id="m-clients"></div></div>
   </section>
@@ -313,10 +323,11 @@ td.rate input.own{border-color:var(--accent)}
       <div class="tile"><span class="k">Arbeitstage</span><span class="v" id="y-days">0</span><span class="s" id="y-months"></span></div>
     </div>
     <div class="card" style="margin-top:14px"><h2 id="y-title">Jahresumsatz</h2><div id="year-table"></div></div>
+    <div class="card" id="y-proj-card" style="margin-top:14px" hidden><h2>Nach Projekt / Baustelle</h2><div id="y-proj"></div></div>
     <div class="card" id="y-clients-card" style="margin-top:14px" hidden><h2>Nach Kunde</h2><div id="y-clients"></div></div>
   </section>
 
-  <p class="foot">Zeiten schnell tippen: 8 → 08:00, 830 → 08:30, 1730 → 17:30. Enter springt zum nächsten Tag. Zeiten über Mitternacht werden automatisch gerechnet. Feiertage: Italien und Pfingstmontag (Südtirol).</p>
+  <p class="foot">Zeiten schnell tippen: 8 → 08:00, 830 → 08:30, 1730 → 17:30. Kilometer und Spesen mit Komma oder Punkt. Enter springt zum nächsten Tag. Zeiten über Mitternacht werden automatisch gerechnet. Feiertage: Italien und Pfingstmontag (Südtirol).</p>
 </main>
 
 <input type="file" id="file-xlsx" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
@@ -326,6 +337,7 @@ td.rate input.own{border-color:var(--accent)}
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-export-h">
     <h2 id="ov-export-h">Exportieren</h2>
     <div class="field"><label for="ex-client">Kunde</label><select id="ex-client"></select></div>
+    <div class="field" id="ex-proj-wrap" hidden><label for="ex-proj">Projekt / Baustelle (für das PDF)</label><select id="ex-proj"></select></div>
     <label class="check"><input type="checkbox" id="ex-money"> Stundensatz und Betrag im PDF angeben</label>
     <button type="button" class="list-btn" id="ex-pdf"><b id="ex-pdf-t">PDF-Stundennachweis</b><small>Alle Einträge des Monats mit Summe und Unterschriftsfeldern – zum Mitschicken mit der Rechnung</small></button>
     <button type="button" class="list-btn" id="ex-xlsx"><b id="ex-xlsx-t">Excel – Jahr</b><small>Wie deine Vorlage: Jahresumsatz plus ein Blatt pro Monat, mit Formeln</small></button>
@@ -340,6 +352,7 @@ td.rate input.own{border-color:var(--accent)}
     <div class="field"><label for="set-name">Dein Name / Firma (erscheint im PDF)</label><input type="text" id="set-name" autocomplete="name"></div>
     <div class="field"><label for="set-info">Zusatzzeilen im PDF (Adresse, Partita IVA …)</label><textarea id="set-info" rows="3"></textarea></div>
     <div class="field"><label for="set-rate">Standard-Stundensatz für neue Kunden (€)</label><input type="number" id="set-rate" min="0" step="0.5" inputmode="decimal"></div>
+    <div class="field"><label for="set-km">Standard-km-Satz für neue Kunden (€/km, 0 = km nicht verrechnen)</label><input type="number" id="set-km" min="0" step="0.01" inputmode="decimal"></div>
     <div class="field"><label for="set-deduct">Abzug für Steuern &amp; Beiträge (%) – für die Netto-Werte</label><input type="number" id="set-deduct" min="0" max="100" step="1" inputmode="numeric"></div>
     <button type="button" class="list-btn" id="open-clients"><b>Kunden verwalten</b><small>Namen, Stundensätze, Kunden ausblenden</small></button>
     <h3>Daten übernehmen</h3>
@@ -356,6 +369,7 @@ td.rate input.own{border-color:var(--accent)}
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="ov-clients-h">
     <h2 id="ov-clients-h">Kunden</h2>
     <div id="cl-list"></div>
+    <p class="foot">Pro Kunde: Name, Stundensatz (€/h), Tagessatz (€/Tag, 0 = keiner) mit Standard-Abrechnung für neue Einträge, km-Satz (€/km) und Projekte/Baustellen.</p>
     <h3>Neuer Kunde</h3>
     <form class="cl-row" id="cl-add">
       <input type="text" id="cl-new-name" placeholder="Name, z. B. TechnoAlpin" aria-label="Name des neuen Kunden">
@@ -365,6 +379,37 @@ td.rate input.own{border-color:var(--accent)}
     </form>
     <p class="foot">Ausgeblendete Kunden verschwinden aus der Auswahl, ihre Stunden bleiben erhalten und zählen in „Alle Kunden“ weiter mit.</p>
     <div class="row-btns"><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-projects" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-projects-h">
+    <h2 id="ov-projects-h">Projekte</h2>
+    <div id="pr-list"></div>
+    <form class="cl-row" id="pr-add">
+      <input type="text" id="pr-new-name" placeholder="z. B. Skigebiet Obereggen" aria-label="Name des neuen Projekts">
+      <button type="submit" class="btn primary">Hinzufügen</button>
+    </form>
+    <p class="foot">Ausgeblendete Projekte erscheinen nicht mehr in der Auswahl, ihre Einträge bleiben erhalten.</p>
+    <div class="row-btns"><button type="button" class="btn" id="pr-back">Zurück zu Kunden</button><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-prompt" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="pp-h">
+    <h2 id="pp-h">Eingabe</h2>
+    <form id="pp-form" class="field"><label for="pp-input" id="pp-label">Name</label><input type="text" id="pp-input" autocomplete="off"></form>
+    <div class="row-btns"><button type="button" class="btn" id="pp-no">Abbrechen</button><button type="button" class="btn primary" id="pp-yes">OK</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-import" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="imp-h">
+    <h2 id="imp-h">Importieren</h2>
+    <p id="imp-text"></p>
+    <div class="field"><label for="imp-assign">Zuordnung</label><select id="imp-assign"></select></div>
+    <p class="foot" id="imp-note"></p>
+    <div class="row-btns"><button type="button" class="btn" id="imp-no">Abbrechen</button><button type="button" class="btn primary" id="imp-yes">Importieren</button></div>
   </div>
 </div>
 
@@ -385,12 +430,12 @@ td.rate input.own{border-color:var(--accent)}
 /* ================= Basics ================= */
 const MONTHS=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const WD=["So","Mo","Di","Mi","Do","Fr","Sa"];
-const FIELDS=["v1","b1","v2","b2"];
+const FIELDS=["v1","b1","v2","b2","v3","b3"];
 const ALLF=[...FIELDS,"notiz"];
-const DEFAULTS={rate:43,deduct:30,name:"",info:""};
+const DEFAULTS={rate:43,deduct:30,name:"",info:"",kmRate:0};
 const CFG=Object.assign({dataRepo:""},window.STUNDEN_CONFIG||{});
 const API="https://api.github.com";
-const K={token:"st:token",repo:"st:repo",meta:"st:c:meta",yearPrefix:"st:c:y:",outbox:"st:outbox",client:"st:client",last:"st:last",sum:"st:sumOpen"};
+const K={token:"st:token",repo:"st:repo",meta:"st:c:meta",yearPrefix:"st:c:y:",outbox:"st:outbox",client:"st:client",last:"st:last",sum:"st:sumOpen",lastProj:"st:lastProj"};
 
 const $=s=>document.querySelector(s);
 const pad=n=>String(n).padStart(2,"0");
@@ -415,9 +460,18 @@ function parseTime(raw){
   return hhmm(h*60+m);
 }
 const span=(a,b)=>{const x=toMin(a),y=toMin(b);if(x==null||y==null)return 0;let d=y-x;if(d<0)d+=1440;return d;};
-const entryMin=e=>e?span(e.v1,e.b1)+span(e.v2,e.b2):0;
+const entryMin=e=>e?span(e.v1,e.b1)+span(e.v2,e.b2)+span(e.v3,e.b3):0;
 const fmtHM=min=>`${Math.floor(min/60)}:${pad(Math.round(min%60))}`;
 const fmtDec=min=>DEC.format(min/60);
+const DEC1=new Intl.NumberFormat("de-DE",{maximumFractionDigits:1});
+const fmtKm=v=>DEC1.format(v||0);
+const numInputStr=v=>v===""||v==null?"":String(v).replace(".",",");
+function parseNumInput(raw,dec){
+  const s=String(raw??"").trim().replace(/€|km/gi,"").replace(/\s/g,"").replace(",",".");
+  if(!s)return "";
+  if(!/^\d+(\.\d*)?$|^\.\d+$/.test(s))return null;
+  const f=10**dec;return Math.round(parseFloat(s)*f)/f;
+}
 const numOr=(v,d)=>{const n=typeof v==="number"?v:parseFloat(String(v??"").replace(",","."));return isFinite(n)?n:d;};
 const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
@@ -451,8 +505,9 @@ function holidays(y){
 }
 
 /* ================= Data model ================= */
-const blank=()=>({v1:"",b1:"",v2:"",b2:"",notiz:""});
-const isBlankEntry=e=>!e||ALLF.every(f=>!String(e[f]??"").trim());
+const blank=()=>({v1:"",b1:"",v2:"",b2:"",v3:"",b3:"",notiz:"",p:"",km:"",sp:"",t:""});
+const numVal=v=>{if(v===""||v==null)return "";const n=typeof v==="number"?v:parseFloat(String(v).replace(",","."));return isFinite(n)&&n>=0?n:"";};
+const isBlankEntry=e=>!e||(ALLF.every(f=>!String(e[f]??"").trim())&&numVal(e.km)===""&&numVal(e.sp)==="");
 function cleanEntry(e){
   const o={};
   for(const f of ALLF){
@@ -460,6 +515,11 @@ function cleanEntry(e){
     if(FIELDS.includes(f)){const t=toMin(v);v=t==null?"":hhmm(t);}else v=v.slice(0,500);
     o[f]=v;
   }
+  o.p=typeof e?.p==="string"&&/^p[a-z0-9]{1,24}$/.test(e.p)?e.p:"";
+  o.t=e?.t==="d"?"d":"";
+  const km=numVal(e?.km),sp=numVal(e?.sp);
+  o.km=km===""?"":Math.round(km*10)/10;
+  o.sp=sp===""?"":Math.round(sp*100)/100;
   return o;
 }
 function cleanList(list){return (Array.isArray(list)?list:[]).map(cleanEntry).filter(e=>!isBlankEntry(e));}
@@ -500,11 +560,33 @@ function sanitizeClients(list){
   for(const c of (Array.isArray(list)?list:[])){
     if(!c||typeof c.id!=="string"||!/^[a-z0-9]+$/.test(c.id)||seen.has(c.id))continue;
     seen.add(c.id);
-    out.push({id:c.id,name:String(c.name||"Kunde").slice(0,80),rate:numOr(c.rate,DEFAULTS.rate),hidden:!!c.hidden});
+    out.push({id:c.id,name:String(c.name||"Kunde").slice(0,80),rate:numOr(c.rate,DEFAULTS.rate),kmRate:Math.max(0,numOr(c.kmRate,DEFAULTS.kmRate)),dayRate:Math.max(0,numOr(c.dayRate,0)),bill:c.bill==="d"?"d":"h",hidden:!!c.hidden,projects:sanitizeProjects(c.projects)});
   }
   return out;
 }
-const sanitizeSettings=s=>({rate:numOr(s?.rate,DEFAULTS.rate),deduct:Math.min(100,Math.max(0,numOr(s?.deduct,DEFAULTS.deduct))),name:String(s?.name||"").slice(0,120),info:String(s?.info||"").slice(0,500)});
+function sanitizeProjects(list){
+  const out=[],seen=new Set();
+  for(const p of (Array.isArray(list)?list:[])){
+    if(!p||typeof p.id!=="string"||!/^p[a-z0-9]{1,24}$/.test(p.id)||seen.has(p.id))continue;
+    seen.add(p.id);out.push({id:p.id,name:String(p.name||"Projekt").slice(0,80),hidden:!!p.hidden});
+  }
+  return out;
+}
+const projName=(cid,pid)=>{if(!pid)return "";const pr=clientById(cid)?.projects.find(p=>p.id===pid);return pr?pr.name:"Unbekanntes Projekt";};
+const kmRateOf=cid=>{const c=clientById(cid);return c?c.kmRate:0;};
+const dayRateOf=cid=>{const c=clientById(cid);return c?c.dayRate:0;};
+const defaultBill=cid=>{const c=clientById(cid);return c&&c.dayRate>0&&c.bill==="d"?"d":"";};
+let lastProj=lsJSON(K.lastProj)||{};
+const lastProjectOf=cid=>{const pid=lastProj[cid];const c=clientById(cid);return pid&&c&&c.projects.some(p=>p.id===pid&&!p.hidden)?pid:"";};
+const setLastProject=(cid,pid)=>{lastProj[cid]=pid||"";lsPut(K.lastProj,lastProj);};
+function addProject(cid,name){
+  const c=clientById(cid);name=String(name||"").trim().slice(0,80);if(!c||!name)return null;
+  const ex=c.projects.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(ex){if(ex.hidden){ex.hidden=false;queueMeta("clients");}return ex;}
+  let id;do{id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}while(c.projects.some(p=>p.id===id));
+  const pr={id,name,hidden:false};c.projects.push(pr);queueMeta("clients");return pr;
+}
+const sanitizeSettings=s=>({kmRate:Math.max(0,numOr(s?.kmRate,DEFAULTS.kmRate)),rate:numOr(s?.rate,DEFAULTS.rate),deduct:Math.min(100,Math.max(0,numOr(s?.deduct,DEFAULTS.deduct))),name:String(s?.name||"").slice(0,120),info:String(s?.info||"").slice(0,500)});
 function newClientId(){let id;do{id="c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}while(clientById(id));return id;}
 function ensureActiveClient(){
   const ids=state.clients.map(c=>c.id);
@@ -812,9 +894,9 @@ function renderMonth(){
 }
 function renderMonthGrid(){
   const {y,m}=state,key=mk(state.client,y,m),md=getMonth(key),H=holidays(y);
-  const nd=daysIn(y,m),t=new Date();
+  const nd=daysIn(y,m),t=new Date(),dr=dayRateOf(state.client);
   const todayD=(t.getFullYear()===y&&t.getMonth()+1===m)?t.getDate():0;
-  let h=`<div class="row head" role="row"><span>Datum</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span class="r">Stunden</span><span>Notiz / Tätigkeit</span><span></span></div>`;
+  let h=`<div class="row head" role="row"><span>Datum</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span class="r">Stunden</span><span title="Abrechnung: Stunden oder Tagessatz">Abr.</span><span>Projekt / Baustelle</span><span class="r">km</span><span class="r">Spesen €</span><span>Notiz / Tätigkeit</span><span></span></div>`;
   for(let d=1;d<=nd;d++){
     const dd=pad(d),wd=new Date(y,m-1,d).getDay(),hol=H[`${pad(m)}-${dd}`];
     const list=(md.days[dd]&&md.days[dd].length)?md.days[dd]:[blank()];
@@ -828,8 +910,12 @@ function renderMonthGrid(){
       const delLbl=list.length>1?"Zeile entfernen":"Zeile leeren";
       h+=`<div class="${cls.join(" ")}" role="row" data-d="${dd}" data-i="${i}">`+
         `<div class="date">${i===0?`<b>${dateTxt}</b>${hol?`<small>${esc(hol)}</small>`:""}`:`<span class="sub">↳ ${dateTxt}</span>`}</div>`+
-        FIELDS.map((f,j)=>{const lbl=j%2?"Bis":"Von";return `<label class="f f-${f}"><span class="cap">${lbl}</span><input type="text" class="tm" inputmode="numeric" maxlength="5" placeholder="--:--" autocomplete="off" id="e-${dd}-${i}-${f}" data-f="${f}" value="${esc(e[f])}" aria-label="${dateTxt} ${lbl} (Block ${j<2?1:2})"></label>`;}).join("")+
+        FIELDS.map((f,j)=>{const lbl=j%2?"Bis":"Von";return `<label class="f f-${f}"><span class="cap">${lbl}</span><input type="text" class="tm" inputmode="numeric" maxlength="5" placeholder="--:--" autocomplete="off" id="e-${dd}-${i}-${f}" data-f="${f}" value="${esc(e[f])}" aria-label="${dateTxt} ${lbl} (Block ${Math.floor(j/2)+1})"></label>`;}).join("")+
         `<div class="sum${mins?"":" zero"}" title="${fmtDec(mins)} h">${mins?fmtHM(mins):"–"}</div>`+
+        (dr>0?`<label class="f f-tf"><span class="cap">Abrechnung</span><select id="e-${dd}-${i}-t" data-f="t" class="${e.t==="d"?"day":""}" title="Stunden oder Tagessatz (${esc(eur(dr))})" aria-label="${dateTxt} Abrechnung"><option value=""${e.t==="d"?"":" selected"}>Std</option><option value="d"${e.t==="d"?" selected":""}>Tag</option></select></label>`:`<span class="f f-tf"></span>`)+
+        `<label class="f f-proj"><span class="cap">Projekt / Baustelle</span><select id="e-${dd}-${i}-p" data-f="p" class="${e.p?"":"empty"}" aria-label="${dateTxt} Projekt">${projOptions(state.client,e.p)}</select></label>`+
+        `<label class="f f-km"><span class="cap">km</span><input type="text" class="nm" inputmode="decimal" maxlength="7" placeholder="km" autocomplete="off" id="e-${dd}-${i}-km" data-f="km" value="${esc(numInputStr(e.km))}" aria-label="${dateTxt} Kilometer"></label>`+
+        `<label class="f f-sp"><span class="cap">Spesen €</span><input type="text" class="nm" inputmode="decimal" maxlength="9" placeholder="€" autocomplete="off" id="e-${dd}-${i}-sp" data-f="sp" value="${esc(numInputStr(e.sp))}" aria-label="${dateTxt} Spesen in Euro"></label>`+
         `<label class="f f-notiz"><span class="cap">Notiz / Tätigkeit</span><input type="text" id="e-${dd}-${i}-notiz" data-f="notiz" value="${esc(e.notiz)}" autocomplete="off" aria-label="${dateTxt} Notiz"></label>`+
         `<div class="acts"><button type="button" class="mini" data-act="add" title="Weitere Zeile für diesen Tag" aria-label="Weitere Zeile am ${dateTxt}">+</button><button type="button" class="mini" data-act="del" title="${delLbl}" aria-label="${delLbl} am ${dateTxt}">×</button></div>`+
         `</div>`;
@@ -837,25 +923,55 @@ function renderMonthGrid(){
   }
   $("#sheet").innerHTML=h;
 }
+function projOptions(cid,cur){
+  const c=clientById(cid);const ps=(c?.projects||[]).filter(p=>!p.hidden||p.id===cur);
+  return `<option value="">– kein Projekt –</option>`+ps.map(p=>`<option value="${esc(p.id)}"${p.id===cur?" selected":""}>${esc(p.name)}</option>`).join("")+`<option value="__new">+ Neues Projekt …</option>`;
+}
 function renderMonthAll(){
   const {y,m}=state,rows=[];
   state.clients.forEach((c,ci)=>{for(const [dd,e] of monthEntries(mk(c.id,y,m)))rows.push({dd,e,c,ci});});
   rows.sort((a,b)=>a.dd.localeCompare(b.dd)||a.ci-b.ci);
   if(!rows.length){$("#all-month-body").innerHTML=`<p class="empty">Noch keine Stunden in diesem Monat. Zum Eintragen oben einen Kunden wählen.</p>`;return;}
-  const times=e=>[[e.v1,e.b1],[e.v2,e.b2]].filter(([a,b])=>a||b).map(([a,b])=>`${a||"…"}–${b||"…"}`).join(", ");
-  $("#all-month-body").innerHTML=`<table><thead><tr><th>Datum</th><th>Kunde</th><th>Zeiten</th><th class="num">Stunden</th><th>Notiz</th></tr></thead><tbody>`+
-    rows.map(({dd,e,c})=>{const wd=new Date(y,m-1,+dd).getDay();return `<tr class="${wd===0||wd===6?"we":""}"><td class="mono">${WD[wd]}, ${dd}.${pad(m)}.</td><td><button type="button" class="link" data-open="${esc(c.id)}">${esc(c.name)}</button></td><td class="mono">${esc(times(e))}</td><td class="num">${fmtHM(entryMin(e))}</td><td class="wrap">${esc(e.notiz)}</td></tr>`;}).join("")+
+  const times=e=>[[e.v1,e.b1],[e.v2,e.b2],[e.v3,e.b3]].filter(([a,b])=>a||b).map(([a,b])=>`${a||"…"}–${b||"…"}`).join(", ");
+  const sm=state.showMoney;
+  $("#all-month-body").innerHTML=`<table><thead><tr><th>Datum</th><th>Kunde</th><th>Projekt</th><th>Zeiten</th><th class="num">Stunden</th><th class="num">km</th>${sm?`<th class="num">Spesen</th>`:""}<th>Notiz</th></tr></thead><tbody>`+
+    rows.map(({dd,e,c})=>{const wd=new Date(y,m-1,+dd).getDay();return `<tr class="${wd===0||wd===6?"we":""}"><td class="mono">${WD[wd]}, ${dd}.${pad(m)}.</td><td><button type="button" class="link" data-open="${esc(c.id)}">${esc(c.name)}</button></td><td>${esc(projName(c.id,e.p))}</td><td class="mono">${esc(times(e))}</td><td class="num">${fmtHM(entryMin(e))}</td><td class="num">${e.km!==""?fmtKm(e.km):""}</td>${sm?`<td class="num">${e.sp!==""?eur(e.sp):""}</td>`:""}<td class="wrap">${esc(e.notiz)}</td></tr>`;}).join("")+
     `</tbody></table><p class="foot" style="padding-top:10px">Zum Bearbeiten auf den Kundennamen tippen.</p>`;
 }
-function monthStats(y,m){
-  let min=0,rev=0;const days=new Set(),per=new Map();
-  for(const cid of scopeIds()){
-    const key=mk(cid,y,m),rate=rateOf(key);
-    for(const [dd,e] of monthEntries(key)){const x=entryMin(e);min+=x;rev+=x/60*rate;if(x>0)days.add(dd);
-      const v=per.get(cid)||{min:0,rev:0};v.min+=x;v.rev+=x/60*rate;per.set(cid,v);}
+const addTo=(map,k,v)=>{const t=map.get(k)||{min:0,rev:0,km:0,sp:0,kmMoney:0};t.min+=v.min;t.rev+=v.rev;t.km+=v.km;t.sp+=v.sp;t.kmMoney+=v.kmMoney;map.set(k,t);};
+/* Per client-month: days marked "Tag" are billed with the client's day rate (once per day), all others by the hour. */
+function billMonth(cid,y,m){
+  const key=mk(cid,y,m),rate=rateOf(key),dr=dayRateOf(cid),byDay=new Map();
+  for(const [dd,e] of monthEntries(key)){if(!byDay.has(dd))byDay.set(dd,[]);byDay.get(dd).push(e);}
+  const rows=[];let hourMin=0,dayN=0;
+  for(const [dd,list] of byDay){
+    const dayMode=dr>0&&list.some(e=>e.t==="d"),dMin=list.reduce((t,e)=>t+entryMin(e),0);
+    if(dayMode)dayN++;else hourMin+=dMin;
+    for(const e of list){const x=entryMin(e);rows.push({dd,e,x,rev:dayMode?(dMin?dr*x/dMin:dr/list.length):x/60*rate,day:dayMode});}
   }
-  return {min,rev,days:days.size,per};
+  return {rows,rate,dr,hourMin,dayN};
 }
+function monthStats(y,m){
+  let min=0,rev=0,km=0,sp=0,kmMoney=0,dayN=0;const days=new Set(),per=new Map(),proj=new Map();
+  for(const cid of scopeIds()){
+    const b=billMonth(cid,y,m),kr=kmRateOf(cid);dayN+=b.dayN;
+    for(const {dd,e,x,rev:r} of b.rows){
+      const k=+e.km||0,s=+e.sp||0,v={min:x,rev:r,km:k,sp:s,kmMoney:k*kr};
+      min+=x;rev+=r;km+=k;sp+=s;kmMoney+=v.kmMoney;if(x>0||k>0||s>0)days.add(dd);
+      addTo(per,cid,v);addTo(proj,`${cid}|${e.p||""}`,v);
+    }
+  }
+  return {min,rev,km,sp,kmMoney,dayN,days:days.size,per,proj};
+}
+function projTable(map,total){
+  const rows=[...map.entries()].filter(([,v])=>v.min>0||v.km>0||v.sp>0).sort((a,b)=>b[1].min-a[1].min);
+  if(!rows.length)return `<p class="empty">Noch keine Einträge.</p>`;
+  const sm=state.showMoney;
+  return `<table><thead><tr><th>Projekt / Baustelle</th><th class="num">Stunden</th><th class="num">Dezimal</th><th class="num">km</th>${sm?`<th class="num">Spesen</th><th class="num">Umsatz</th>`:""}<th>Anteil</th></tr></thead><tbody>`+
+    rows.map(([k,v])=>{const [cid,pid]=k.split("|");return `<tr><td>${pid?esc(projName(cid,pid)):'<span class="foot">ohne Projekt</span>'}</td><td class="num">${fmtHM(v.min)}</td><td class="num">${fmtDec(v.min)}</td><td class="num">${fmtKm(v.km)}</td>${sm?`<td class="num">${eur(v.sp)}</td><td class="num">${eur(v.rev)}</td>`:""}<td class="barcell"><span style="width:${(v.min/Math.max(1,total)*100).toFixed(1)}%"></span></td></tr>`;}).join("")+
+    `</tbody></table>`;
+}
+const showProjCard=(map,cid)=>!!clientById(cid)?.projects.length||[...map.keys()].some(k=>!k.endsWith("|"));
 function renderMonthSummary(){
   const {y,m}=state,st=monthStats(y,m),all=isAll();
   $("#m-sum-k").textContent=all?"Alle Kunden":"Monatsübersicht";
@@ -869,21 +985,26 @@ function renderMonthSummary(){
     $("#m-rate-wrap").hidden=!state.showMoney;$("#m-rate-mask").hidden=state.showMoney;
     const own=typeof state.months[key]?.rate==="number";
     $("#m-rate-note").innerHTML=!state.showMoney?`<button type="button" class="linkish" id="m-money-on">Beträge einblenden</button> zum Ändern`
-      :own?`Nur dieser Monat · <button type="button" class="linkish" id="m-rate-reset">auf ${esc(eur(baseRate(state.client)))} zurück</button>`:`Satz von ${esc(clientName(state.client))}`;
+      :(own?`Nur dieser Monat · <button type="button" class="linkish" id="m-rate-reset">auf ${esc(eur(baseRate(state.client)))} zurück</button>`:`Satz von ${esc(clientName(state.client))}`)+(dayRateOf(state.client)?` · Tagessatz ${esc(eur(dayRateOf(state.client)))}`:"");
   }
   $("#m-rev").textContent=money(st.rev);
-  $("#m-days").textContent=`${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}`;
+  $("#m-days").textContent=`${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}${st.dayN?` · davon ${st.dayN} ${st.dayN===1?"Tagessatz":"Tagessätze"}`:""}`;
   $("#m-net-k").textContent=`Netto (−${state.settings.deduct} %)`;
   $("#m-net").textContent=money(netOf(st.rev));
-  $("#m-sum-line").textContent=state.showMoney?`${fmtHM(st.min)} h · ${eur(st.rev)} · Netto ${eur(netOf(st.rev))}`:`${fmtHM(st.min)} h · ${fmtDec(st.min)} h dezimal · ${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}`;
+  $("#m-km").textContent=`${fmtKm(st.km)} km`;
+  $("#m-sp").textContent=state.showMoney?`Spesen ${eur(st.sp)}${st.kmMoney?` · km-Geld ${eur(st.kmMoney)}`:""}`:"Spesen •••• €";
+  const kmTxt=st.km?` · ${fmtKm(st.km)} km`:"";
+  $("#m-sum-line").textContent=state.showMoney?`${fmtHM(st.min)} h · ${eur(st.rev)} · Netto ${eur(netOf(st.rev))}${kmTxt}`:`${fmtHM(st.min)} h · ${fmtDec(st.min)} h dezimal · ${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}${kmTxt}`;
   if(all)$("#m-clients").innerHTML=clientTable(st.per,st.min);
+  const pc=!all&&showProjCard(st.proj,state.client);
+  $("#m-proj-card").hidden=!pc;if(pc)$("#m-proj").innerHTML=projTable(st.proj,st.min);
 }
 function clientTable(per,total){
-  const rows=[...per.entries()].filter(([,v])=>v.min>0).sort((a,b)=>b[1].min-a[1].min);
+  const rows=[...per.entries()].filter(([,v])=>v.min>0||v.km>0||v.sp>0).sort((a,b)=>b[1].min-a[1].min);
   if(!rows.length)return `<p class="empty">Noch keine Stunden erfasst.</p>`;
   const sm=state.showMoney;
-  return `<table><thead><tr><th>Kunde</th><th class="num">Stunden</th><th class="num">Dezimal</th>${sm?`<th class="num">Umsatz</th>`:""}<th>Anteil</th></tr></thead><tbody>`+
-    rows.map(([cid,v])=>`<tr><td><button type="button" class="link" data-open="${esc(cid)}">${esc(clientName(cid))}</button></td><td class="num">${fmtHM(v.min)}</td><td class="num">${fmtDec(v.min)}</td>${sm?`<td class="num">${eur(v.rev)}</td>`:""}<td class="barcell"><span style="width:${(v.min/Math.max(1,total)*100).toFixed(1)}%"></span></td></tr>`).join("")+
+  return `<table><thead><tr><th>Kunde</th><th class="num">Stunden</th><th class="num">Dezimal</th><th class="num">km</th>${sm?`<th class="num">Spesen</th><th class="num">Umsatz</th>`:""}<th>Anteil</th></tr></thead><tbody>`+
+    rows.map(([cid,v])=>`<tr><td><button type="button" class="link" data-open="${esc(cid)}">${esc(clientName(cid))}</button></td><td class="num">${fmtHM(v.min)}</td><td class="num">${fmtDec(v.min)}</td><td class="num">${fmtKm(v.km)}</td>${sm?`<td class="num">${eur(v.sp)}</td><td class="num">${eur(v.rev)}</td>`:""}<td class="barcell"><span style="width:${(v.min/Math.max(1,total)*100).toFixed(1)}%"></span></td></tr>`).join("")+
     `</tbody></table>`;
 }
 
@@ -909,10 +1030,11 @@ function fillYear(){
   for(let m=1;m<=12;m++){const st=monthStats(y,m);const key=all?null:mk(state.client,y,m);
     data.push({m,key,...st,rate:key?rateOf(key):null,own:key?typeof state.months[key]?.rate==="number":false});}
   const maxMin=Math.max(1,...data.map(d=>d.min));
-  let tMin=0,tRev=0,tDays=0,active=0;const per=new Map();
+  let tMin=0,tRev=0,tDays=0,active=0,tKm=0;const per=new Map(),proj=new Map();
   for(const d of data){
-    tMin+=d.min;tRev+=d.rev;tDays+=d.days;if(d.min>0)active++;
-    for(const [cid,v] of d.per){const t=per.get(cid)||{min:0,rev:0};t.min+=v.min;t.rev+=v.rev;per.set(cid,t);}
+    tMin+=d.min;tRev+=d.rev;tDays+=d.days;tKm+=d.km;if(d.min>0)active++;
+    for(const [cid,v] of d.per)addTo(per,cid,v);
+    for(const [k,v] of d.proj)addTo(proj,k,v);
     setT(`y-h-${d.m}`,d.min?fmtHM(d.min):"–");setT(`y-d-${d.m}`,d.min?fmtDec(d.min):"–");
     setT(`y-r-${d.m}`,eur(d.rev));setT(`y-n-${d.m}`,eur(netOf(d.rev)));
     $(`#y-b-${d.m}`).style.width=(d.min/maxMin*100).toFixed(1)+"%";
@@ -921,7 +1043,9 @@ function fillYear(){
   }
   setT("y-th",fmtHM(tMin));setT("y-td",fmtDec(tMin));setT("y-tr",eur(tRev));setT("y-tn",eur(netOf(tRev)));
   setT("y-net-th",`Netto (−${state.settings.deduct} %)`);
-  $("#y-hours").textContent=fmtHM(tMin);$("#y-hours-dec").textContent=`${fmtDec(tMin)} h dezimal`;
+  $("#y-hours").textContent=fmtHM(tMin);$("#y-hours-dec").textContent=`${fmtDec(tMin)} h dezimal${tKm?` · ${fmtKm(tKm)} km`:""}`;
+  const pc=!all&&showProjCard(proj,state.client);
+  $("#y-proj-card").hidden=!pc;if(pc)$("#y-proj").innerHTML=projTable(proj,tMin);
   $("#y-rev").textContent=money(tRev);
   $("#y-avg").textContent=!active?"Noch keine Stunden erfasst":state.showMoney?`Ø ${eur(tRev/active)} pro Monat mit Stunden`:"Beträge ausgeblendet";
   $("#y-net-k").textContent=`Netto (−${state.settings.deduct} %)`;$("#y-net").textContent=money(netOf(tRev));
@@ -953,6 +1077,7 @@ function doStamp(){
   const before=clone(md.days[t.dd]||[]);
   const list=md.days[t.dd]||(md.days[t.dd]=[]);
   while(list.length<=t.i)list.push(blank());
+  if(isBlankEntry(list[t.i])){if(!list[t.i].p)list[t.i].p=lastProjectOf(t.cid);if(!list[t.i].t)list[t.i].t=defaultBill(t.cid);}
   list[t.i][t.f]=val;
   const label=t.f.startsWith("v")?"Kommen":"Gehen";
   const y=n.getFullYear(),m=n.getMonth()+1;
@@ -970,21 +1095,59 @@ $("#sheet").addEventListener("input",ev=>{
   const key=mk(state.client,state.y,state.m),md=ensureMonth(key);
   const list=md.days[dd]||(md.days[dd]=[]);
   while(list.length<=i)list.push(blank());
+  const wasBlank=isBlankEntry(list[i]);
   if(FIELDS.includes(f)){const t=parseTime(inp.value);if(t===null)return;inp.classList.remove("bad");if(list[i][f]===t)return;list[i][f]=t;}
+  else if(f==="km"||f==="sp"){const n=parseNumInput(inp.value,f==="km"?1:2);if(n===null)return;inp.classList.remove("bad");if(list[i][f]===n)return;list[i][f]=n;}
   else list[i][f]=inp.value;
+  if(wasBlank&&!isBlankEntry(list[i])){
+    const lp=lastProjectOf(state.client);
+    if(lp&&!list[i].p){list[i].p=lp;const sel=row.querySelector("select[data-f='p']");if(sel){sel.value=lp;sel.classList.remove("empty");}}
+    const db=defaultBill(state.client);
+    if(db&&!list[i].t){list[i].t=db;const sel=row.querySelector("select[data-f='t']");if(sel){sel.value=db;sel.classList.add("day");}}
+  }
   const mins=entryMin(list[i]),s=row.querySelector(".sum");
   s.textContent=mins?fmtHM(mins):"–";s.classList.toggle("zero",!mins);s.title=`${fmtDec(mins)} h`;
   renderMonthSummary();updateStamp();queueDay(key,dd);
 });
-$("#sheet").addEventListener("change",ev=>{
+$("#sheet").addEventListener("change",async ev=>{
   const inp=ev.target;
+  if(inp.matches("select[data-f='p']")){
+    const row=inp.closest(".row"),dd=row.dataset.d,i=+row.dataset.i,cid=state.client;
+    const key=mk(cid,state.y,state.m),md=ensureMonth(key);
+    const list=md.days[dd]||(md.days[dd]=[]);
+    while(list.length<=i)list.push(blank());
+    let pid=inp.value;
+    if(pid==="__new"){
+      inp.value=list[i].p||"";
+      const name=await promptBox("Neues Projekt",`Projekt / Baustelle für ${clientName(cid)}`,"z. B. Skigebiet Obereggen");
+      if(!name)return;
+      const pr=addProject(cid,name);if(!pr)return;pid=pr.id;
+    }
+    list[i].p=pid;setLastProject(cid,pid);queueDay(key,dd);render();
+    return;
+  }
+  if(inp.matches("select[data-f='t']")){
+    const row=inp.closest(".row"),dd=row.dataset.d,i=+row.dataset.i;
+    const key=mk(state.client,state.y,state.m),md=ensureMonth(key);
+    const list=md.days[dd]||(md.days[dd]=[]);
+    while(list.length<=i)list.push(blank());
+    list[i].t=inp.value==="d"?"d":"";inp.classList.toggle("day",list[i].t==="d");
+    queueDay(key,dd);renderMonthSummary();
+    return;
+  }
+  if(inp.matches("input.nm")){
+    const n=parseNumInput(inp.value,inp.dataset.f==="km"?1:2);
+    if(n===null){inp.classList.add("bad");toast(`„${inp.value}“ ist keine gültige Zahl. Beispiel: 42 oder 12,50`);}
+    else{inp.classList.remove("bad");inp.value=numInputStr(n);}
+    return;
+  }
   if(inp.matches("input.tm")){
     const t=parseTime(inp.value);
     if(t===null){inp.classList.add("bad");toast(`„${inp.value}“ ist keine gültige Uhrzeit. Beispiele: 8, 830, 17:30`);}
     else{inp.classList.remove("bad");inp.value=t;}
   }
 });
-$("#sheet").addEventListener("focusin",ev=>{if(ev.target.matches("input.tm"))try{ev.target.select();}catch(e){}});
+$("#sheet").addEventListener("focusin",ev=>{if(ev.target.matches("input.tm,input.nm"))try{ev.target.select();}catch(e){}});
 $("#sheet").addEventListener("keydown",ev=>{
   if(ev.key!=="Enter"||!ev.target.matches("input[data-f]"))return;
   ev.preventDefault();
@@ -1104,7 +1267,7 @@ function closeOv(el){el.hidden=true;}
 document.querySelectorAll(".overlay").forEach(ov=>{
   ov.addEventListener("click",ev=>{if(ev.target===ov||ev.target.closest("[data-close]")){if(ov.id==="ov-confirm")cfResolve(false);closeOv(ov);}});
 });
-document.addEventListener("keydown",ev=>{if(ev.key==="Escape")document.querySelectorAll(".overlay:not([hidden])").forEach(o=>{if(o.id==="ov-confirm")cfResolve(false);closeOv(o);});});
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape")document.querySelectorAll(".overlay:not([hidden])").forEach(o=>{if(o.id==="ov-confirm")cfResolve(false);if(o.id==="ov-prompt")ppResolve(null);if(o.id==="ov-import")impResolve(false);closeOv(o);});});
 let toastTimer=null;
 function toast(msg,actLabel,actFn){
   const t=$("#toast");t.textContent="";
@@ -1119,6 +1282,17 @@ function confirmBox(title,text,ok){
   $("#ov-confirm").hidden=false;$("#cf-yes").focus();
   return new Promise(res=>{cfRes=res;});
 }
+let ppRes=null;
+function ppResolve(v){if(ppRes){const r=ppRes;ppRes=null;r(v);}$("#ov-prompt").hidden=true;}
+function promptBox(title,label,placeholder){
+  $("#pp-h").textContent=title;$("#pp-label").textContent=label;$("#pp-input").value="";$("#pp-input").placeholder=placeholder||"";
+  $("#ov-prompt").hidden=false;$("#pp-input").focus();
+  return new Promise(res=>{ppRes=res;});
+}
+$("#pp-form").addEventListener("submit",ev=>{ev.preventDefault();ppResolve($("#pp-input").value.trim()||null);});
+$("#pp-yes").addEventListener("click",()=>ppResolve($("#pp-input").value.trim()||null));
+$("#pp-no").addEventListener("click",()=>ppResolve(null));
+$("#ov-prompt").addEventListener("click",ev=>{if(ev.target.id==="ov-prompt")ppResolve(null);});
 $("#cf-yes").addEventListener("click",()=>{$("#ov-confirm").hidden=true;cfResolve(true);});
 $("#cf-no").addEventListener("click",()=>{$("#ov-confirm").hidden=true;cfResolve(false);});
 
@@ -1127,7 +1301,7 @@ function addClient(name,rate){
   name=String(name||"").trim().slice(0,80);
   if(!name){toast("Bitte einen Namen eingeben.");return null;}
   if(state.clients.some(c=>c.name.toLowerCase()===name.toLowerCase())){toast(`„${name}“ gibt es schon.`);return null;}
-  const c={id:newClientId(),name,rate:numOr(rate,state.settings.rate),hidden:false};
+  const c={id:newClientId(),name,rate:numOr(rate,state.settings.rate),kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[]};
   state.clients.push(c);queueMeta("clients");
   return c;
 }
@@ -1136,6 +1310,10 @@ function renderClientList(){
   $("#cl-list").innerHTML=state.clients.length?state.clients.map(c=>`<div class="cl-row" data-id="${esc(c.id)}">
     <input type="text" class="cl-name" id="cl-name-${esc(c.id)}" value="${esc(c.name)}" aria-label="Name">
     <input type="number" class="cl-rate" id="cl-rate-${esc(c.id)}" value="${esc(c.rate)}" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz von ${esc(c.name)}"><span class="unit">€/h</span>
+    <input type="number" class="cl-day" id="cl-day-${esc(c.id)}" value="${esc(c.dayRate)}" min="0" step="1" inputmode="decimal" aria-label="Tagessatz von ${esc(c.name)}" style="width:8ch"><span class="unit">€/Tag</span>
+    <select class="cl-bill" id="cl-bill-${esc(c.id)}" aria-label="Standard-Abrechnung von ${esc(c.name)}" ${c.dayRate>0?"":"disabled"} style="border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--bg)"><option value="h"${c.bill==="d"?"":" selected"}>Standard: Stunden</option><option value="d"${c.bill==="d"?" selected":""}>Standard: Tagessatz</option></select>
+    <input type="number" class="cl-km" id="cl-km-${esc(c.id)}" value="${esc(c.kmRate)}" min="0" step="0.01" inputmode="decimal" aria-label="km-Satz von ${esc(c.name)}"><span class="unit">€/km</span>
+    <button type="button" class="btn" data-projects="${esc(c.id)}">Projekte (${c.projects.filter(p=>!p.hidden).length})</button>
     <label><input type="checkbox" class="cl-hide" id="cl-hide-${esc(c.id)}" ${c.hidden?"checked":""}> ausblenden</label></div>`).join("")
     :`<p class="foot">Noch keine Kunden.</p>`;
 }
@@ -1148,6 +1326,13 @@ $("#cl-list").addEventListener("change",ev=>{
     c.name=n.slice(0,80);
   }else if(ev.target.classList.contains("cl-rate")){
     const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(c.rate);return;}c.rate=Math.round(v*100)/100;
+  }else if(ev.target.classList.contains("cl-day")){
+    const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(c.dayRate);return;}c.dayRate=Math.round(v*100)/100;
+    queueMeta("clients");renderClientList();render();return;
+  }else if(ev.target.classList.contains("cl-bill")){
+    c.bill=ev.target.value==="d"?"d":"h";
+  }else if(ev.target.classList.contains("cl-km")){
+    const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(c.kmRate);return;}c.kmRate=Math.round(v*100)/100;
   }else if(ev.target.classList.contains("cl-hide")){
     if(ev.target.checked&&state.clients.filter(x=>!x.hidden).length<=1){ev.target.checked=false;toast("Mindestens ein Kunde muss sichtbar bleiben.");return;}
     c.hidden=ev.target.checked;
@@ -1155,6 +1340,26 @@ $("#cl-list").addEventListener("change",ev=>{
   }
   queueMeta("clients");render();
 });
+$("#cl-list").addEventListener("click",ev=>{const b=ev.target.closest("[data-projects]");if(b){closeOv($("#ov-clients"));openProjects(b.dataset.projects);}});
+let projClient=null;
+function openProjects(cid){projClient=cid;$("#ov-projects-h").textContent=`Projekte – ${clientName(cid)}`;renderProjList();$("#pr-new-name").value="";openOv("#ov-projects");$("#pr-new-name").focus();}
+function renderProjList(){
+  const c=clientById(projClient);
+  $("#pr-list").innerHTML=c&&c.projects.length?c.projects.map(p=>`<div class="cl-row" data-pid="${esc(p.id)}"><input type="text" class="pr-name" id="pr-name-${esc(p.id)}" value="${esc(p.name)}" aria-label="Projektname"><label><input type="checkbox" class="pr-hide" id="pr-hide-${esc(p.id)}" ${p.hidden?"checked":""}> ausblenden</label></div>`).join("")
+    :`<p class="foot">Noch keine Projekte. Lege z. B. pro Skigebiet oder Baustelle eines an.</p>`;
+}
+$("#pr-list").addEventListener("change",ev=>{
+  const row=ev.target.closest("[data-pid]"),c=clientById(projClient);if(!row||!c)return;
+  const pr=c.projects.find(p=>p.id===row.dataset.pid);if(!pr)return;
+  if(ev.target.classList.contains("pr-name")){
+    const n=ev.target.value.trim();
+    if(!n||c.projects.some(x=>x!==pr&&x.name.toLowerCase()===n.toLowerCase())){toast(n?`„${n}“ gibt es schon.`:"Der Name darf nicht leer sein.");ev.target.value=pr.name;return;}
+    pr.name=n.slice(0,80);
+  }else pr.hidden=ev.target.checked;
+  queueMeta("clients");render();
+});
+$("#pr-add").addEventListener("submit",ev=>{ev.preventDefault();const pr=addProject(projClient,$("#pr-new-name").value);if(!pr)return;$("#pr-new-name").value="";renderProjList();render();});
+$("#pr-back").addEventListener("click",()=>{closeOv($("#ov-projects"));openClients();});
 $("#cl-add").addEventListener("submit",ev=>{
   ev.preventDefault();
   const c=addClient($("#cl-new-name").value,$("#cl-new-rate").value);if(!c)return;
@@ -1173,7 +1378,7 @@ $("#onboard").addEventListener("click",ev=>{
 /* ================= Settings ================= */
 $("#settings-btn").addEventListener("click",()=>{
   $("#set-name").value=state.settings.name;$("#set-info").value=state.settings.info;
-  $("#set-rate").value=String(state.settings.rate);$("#set-deduct").value=String(state.settings.deduct);
+  $("#set-rate").value=String(state.settings.rate);$("#set-deduct").value=String(state.settings.deduct);$("#set-km").value=String(state.settings.kmRate);
   $("#conn-info").textContent=conn?`Verbunden mit dem Repo ${conn.repo}. Jede Änderung wird dort als Version gespeichert.`:"";
   openOv("#ov-settings");
 });
@@ -1182,6 +1387,10 @@ $("#set-info").addEventListener("change",ev=>{state.settings.info=ev.target.valu
 $("#set-rate").addEventListener("change",ev=>{
   const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(state.settings.rate);return;}
   state.settings.rate=Math.round(v*100)/100;queueMeta("settings");render();
+});
+$("#set-km").addEventListener("change",ev=>{
+  const v=numOr(ev.target.value,null);if(v==null||v<0){ev.target.value=String(state.settings.kmRate);return;}
+  state.settings.kmRate=Math.round(v*100)/100;queueMeta("settings");
 });
 $("#set-deduct").addEventListener("change",ev=>{
   const v=numOr(ev.target.value,null);if(v==null||v<0||v>100){ev.target.value=String(state.settings.deduct);return;}
@@ -1218,72 +1427,106 @@ function loadScript(src){
 $("#export-btn").addEventListener("click",()=>{
   const sel=$("#ex-client");
   sel.innerHTML=state.clients.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")+(state.clients.length>1?`<option value="*">Alle Kunden</option>`:"");
-  sel.value=state.client||state.clients[0]?.id||"";
+  sel.value=state.client&&state.client!=="*"?state.client:(state.clients.length>1?"*":state.clients[0]?.id||"");
+  fillExProj();
   $("#ex-pdf-t").textContent=`PDF-Stundennachweis – ${MONTHS[state.m-1]} ${state.y}`;
   $("#ex-xlsx-t").textContent=`Excel – Jahr ${state.y}`;
   $("#ex-pdf").disabled=$("#ex-xlsx").disabled=!state.clients.length;
   openOv("#ov-export");
 });
+function fillExProj(){
+  const c=clientById($("#ex-client").value),ps=c?c.projects.filter(p=>!p.hidden):[];
+  $("#ex-proj-wrap").hidden=!ps.length;
+  $("#ex-proj").innerHTML=`<option value="">Alle Projekte</option>`+ps.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+}
+$("#ex-client").addEventListener("change",fillExProj);
 const exIds=()=>{const v=$("#ex-client").value;return v==="*"?state.clients.map(c=>c.id):[v];};
 const exLabel=()=>{const v=$("#ex-client").value;return v==="*"?"Alle_Kunden":safeName(clientName(v));};
 
-async function buildPdf(ids,y,m,withMoney){
+async function buildPdf(ids,y,m,withMoney,projFilter){
   await loadScript("lib/jspdf.umd.min.js");await loadScript("lib/jspdf.plugin.autotable.min.js");
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:"mm",format:"a4"});
   const me=[state.settings.name,...String(state.settings.info||"").split(/\r?\n/)].map(s=>String(s||"").trim()).filter(Boolean);
-  ids.forEach((cid,idx)=>{
+  const plan=ids.map(cid=>{
+    const key=mk(cid,y,m);let ents=monthEntries(key);
+    if(projFilter)ents=ents.filter(([,e])=>e.p===projFilter);
+    return {cid,key,ents,has3:ents.some(([,e])=>e.v3||e.b3),hasP:!projFilter&&ents.some(([,e])=>e.p),hasKm:ents.some(([,e])=>e.km!==""),hasSp:ents.some(([,e])=>e.sp!=="")};
+  });
+  const landscape=plan.some(p=>p.has3&&(p.hasP||p.hasKm||p.hasSp));
+  const doc=new jsPDF({unit:"mm",format:"a4",orientation:landscape?"l":"p"});
+  const W=landscape?297:210,Hh=landscape?210:297,R=W-20;
+  plan.forEach((pl,idx)=>{
     if(idx)doc.addPage();
-    const key=mk(cid,y,m),ents=monthEntries(key),rate=rateOf(key);
-    const total=ents.reduce((t,[,e])=>t+entryMin(e),0);
+    const {cid,key,ents}=pl,rate=rateOf(key),kr=kmRateOf(cid);
+    const total=ents.reduce((t,[,e])=>t+entryMin(e),0),tkm=ents.reduce((t,[,e])=>t+(+e.km||0),0),tsp=ents.reduce((t,[,e])=>t+(+e.sp||0),0);
     doc.setTextColor(20,32,28);
     doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("Stundennachweis",20,22);
-    doc.setFont("helvetica","normal");doc.setFontSize(12);doc.text(`${MONTHS[m-1]} ${y}`,190,22,{align:"right"});
-    doc.setDrawColor(13,107,87);doc.setLineWidth(.6);doc.line(20,26,190,26);
-    let yy=34;
-    doc.setFontSize(8.5);doc.setTextColor(95,110,105);doc.text("AUFTRAGGEBER",20,yy);doc.text("AUFTRAGNEHMER",110,yy);
+    doc.setFont("helvetica","normal");doc.setFontSize(12);doc.text(`${MONTHS[m-1]} ${y}`,R,22,{align:"right"});
+    doc.setDrawColor(13,107,87);doc.setLineWidth(.6);doc.line(20,26,R,26);
+    let yy=34;const X2=W/2+5;
+    doc.setFontSize(8.5);doc.setTextColor(95,110,105);doc.text("AUFTRAGGEBER",20,yy);doc.text("AUFTRAGNEHMER",X2,yy);
     doc.setFontSize(11);doc.setTextColor(20,32,28);
     doc.setFont("helvetica","bold");doc.text(clientName(cid),20,yy+6);
+    if(projFilter){doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(`Projekt / Baustelle: ${projName(cid,projFilter)}`,20,yy+11);doc.setFont("helvetica","bold");doc.setFontSize(11);}
     const meLines=me.length?me:["(Name in den Einstellungen eintragen)"];
-    doc.text(meLines[0],110,yy+6);doc.setFont("helvetica","normal");doc.setFontSize(10);
-    meLines.slice(1).forEach((l,i)=>doc.text(l,110,yy+11+i*4.6));
-    yy+=Math.max(14,11+(meLines.length-1)*4.6+6);
-    const body=ents.map(([dd,e])=>{const wd=new Date(y,m-1,+dd).getDay();return [`${WD[wd]}, ${dd}.${pad(m)}.${y}`,e.v1,e.b1,e.v2,e.b2,fmtHM(entryMin(e)),e.notiz];});
-    doc.autoTable({startY:yy,head:[["Datum","Von","Bis","Von","Bis","Stunden","Tätigkeit / Notiz"]],
-      body:body.length?body:[["Keine Einträge in diesem Monat","","","","","",""]],
-      foot:[["Summe","","","","",fmtHM(total),`${fmtDec(total)} h dezimal`]],
+    doc.text(meLines[0],X2,yy+6);doc.setFont("helvetica","normal");doc.setFontSize(10);
+    meLines.slice(1).forEach((l,i)=>doc.text(l,X2,yy+11+i*4.6));
+    yy+=Math.max(16,11+(meLines.length-1)*4.6+6);
+    const cols=[{h:"Datum",w:landscape?24:20,v:dd=>`${WD[new Date(y,m-1,+dd).getDay()]}, ${dd}.${pad(m)}.`}];
+    const blocks=pl.has3?3:2;
+    for(let b=0;b<blocks;b++){cols.push({h:"Von",w:11.5,a:"center",v:(dd,e)=>e[FIELDS[b*2]]});cols.push({h:"Bis",w:11.5,a:"center",v:(dd,e)=>e[FIELDS[b*2+1]]});}
+    cols.push({h:"Stunden",w:18,a:"right",v:(dd,e)=>fmtHM(entryMin(e)),f:fmtHM(total)});
+    const bm=billMonth(cid,y,m),dayDays=new Set(bm.rows.filter(r=>r.day).map(r=>r.dd));
+    const shownDays=[...new Set(ents.map(([dd])=>dd))].filter(dd=>dayDays.has(dd));
+    if(shownDays.length)cols.push({h:"Abr.",w:11,a:"center",v:(dd)=>dayDays.has(dd)?"Tag":"Std"});
+    if(pl.hasP)cols.push({h:"Projekt",w:landscape?38:28,v:(dd,e)=>projName(cid,e.p)});
+    if(pl.hasKm)cols.push({h:"km",w:12,a:"right",v:(dd,e)=>e.km!==""?fmtKm(e.km):"",f:fmtKm(tkm)});
+    if(pl.hasSp)cols.push({h:"Spesen €",w:17,a:"right",v:(dd,e)=>e.sp!==""?DEC.format(e.sp):"",f:DEC.format(tsp)});
+    cols.push({h:"Tätigkeit / Notiz",w:"auto",v:(dd,e)=>e.notiz,f:`${fmtDec(total)} h dezimal`});
+    const body=ents.map(([dd,e])=>cols.map(c=>c.v(dd,e)||""));
+    const colStyles={};cols.forEach((c,i)=>{colStyles[i]={cellWidth:c.w,halign:c.a||"left"};});
+    doc.autoTable({startY:yy,head:[cols.map(c=>c.h)],
+      body:body.length?body:[["Keine Einträge in diesem Monat",...cols.slice(1).map(()=>"")]],
+      foot:[cols.map((c,i)=>i===0?"Summe":(c.f||""))],
       theme:"grid",margin:{left:20,right:20},
-      styles:{font:"helvetica",fontSize:9,cellPadding:1.8,lineColor:[214,222,219],lineWidth:.2,textColor:[20,32,28],valign:"middle"},
+      styles:{font:"helvetica",fontSize:9,cellPadding:1.6,lineColor:[214,222,219],lineWidth:.2,textColor:[20,32,28],valign:"middle"},
       headStyles:{fillColor:[13,107,87],textColor:255,fontStyle:"bold"},
       footStyles:{fillColor:[223,238,233],textColor:[20,32,28],fontStyle:"bold"},
-      columnStyles:{0:{cellWidth:30},1:{cellWidth:13,halign:"center"},2:{cellWidth:13,halign:"center"},3:{cellWidth:13,halign:"center"},4:{cellWidth:13,halign:"center"},5:{cellWidth:17,halign:"right"},6:{cellWidth:"auto"}},
-      didParseCell:d=>{if(d.section==="body"&&!body.length&&d.column.index===0)d.cell.colSpan=7;if(d.section==="foot"&&d.column.index===5)d.cell.styles.halign="right";}
+      columnStyles:colStyles,
+      didParseCell:d=>{if(d.section==="body"&&!body.length&&d.column.index===0)d.cell.colSpan=cols.length;if(d.section==="foot"||d.section==="head")d.cell.styles.halign=cols[d.column.index].a||"left";}
     });
     let fy=doc.lastAutoTable.finalY+8;
     doc.setFontSize(10);doc.setTextColor(20,32,28);
     if(withMoney){
-      doc.text(`Stundensatz: ${eur(rate)}`,20,fy);
-      doc.setFont("helvetica","bold");doc.text(`Betrag: ${fmtDec(total)} h × ${eur(rate)} = ${eur(total/60*rate)}`,20,fy+5.5);doc.setFont("helvetica","normal");
-      fy+=12;
+      const hourMin=ents.filter(([dd])=>!dayDays.has(dd)).reduce((t,[,e])=>t+entryMin(e),0);
+      const nDays=shownDays.length,dv=nDays*bm.dr;
+      const hv=hourMin/60*rate+dv,kv=tkm*kr;let line=fy;
+      if(hourMin||!nDays){doc.text(`Stunden: ${fmtDec(hourMin)} h × ${eur(rate)} = ${eur(hourMin/60*rate)}`,20,line);line+=5.5;}
+      if(nDays){doc.text(`Tagessätze: ${nDays} × ${eur(bm.dr)} = ${eur(dv)}`,20,line);line+=5.5;}
+      if(tkm&&kr){doc.text(`Kilometer: ${fmtKm(tkm)} km × ${eur(kr)} = ${eur(kv)}`,20,line);line+=5.5;}
+      if(tsp){doc.text(`Spesen: ${eur(tsp)}`,20,line);line+=5.5;}
+      doc.setFont("helvetica","bold");doc.text(`Gesamt: ${eur(hv+(kr?kv:0)+tsp)}`,20,line);doc.setFont("helvetica","normal");
+      fy=line+6;
     }
-    if(fy>250){doc.addPage();fy=30;}
-    const sy=Math.max(fy+22,0);
+    if(fy>Hh-45){doc.addPage();fy=30;}
+    const sy=fy+22,half=(W-40)/2;
     doc.setDrawColor(120,130,126);doc.setLineWidth(.3);
-    doc.line(20,sy,95,sy);doc.line(115,sy,190,sy);
+    doc.line(20,sy,20+half-10,sy);doc.line(20+half+10,sy,R,sy);
     doc.setFontSize(8.5);doc.setTextColor(95,110,105);
-    doc.text("Datum, Unterschrift Auftragnehmer",20,sy+4.5);doc.text(`Datum, Unterschrift ${clientName(cid)}`,115,sy+4.5);
+    doc.text("Datum, Unterschrift Auftragnehmer",20,sy+4.5);doc.text(`Datum, Unterschrift ${clientName(cid)}`,20+half+10,sy+4.5);
   });
   const n=doc.getNumberOfPages(),t=new Date();
-  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(140,150,146);doc.text(`Erstellt am ${pad(t.getDate())}.${pad(t.getMonth()+1)}.${t.getFullYear()} · Seite ${i} von ${n}`,105,290,{align:"center"});}
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(140,150,146);doc.text(`Erstellt am ${pad(t.getDate())}.${pad(t.getMonth()+1)}.${t.getFullYear()} · Seite ${i} von ${n}`,W/2,Hh-7,{align:"center"});}
   return doc.output("blob");
 }
 $("#ex-pdf").addEventListener("click",async()=>{
   const ids=exIds(),label=exLabel(),{y,m}=state,withMoney=$("#ex-money").checked;
+  const pf=ids.length===1&&!$("#ex-proj-wrap").hidden?$("#ex-proj").value:"";
   closeOv($("#ov-export"));
   try{
     if(!state.settings.name)toast("Tipp: Unter ⚙ deinen Namen eintragen, er erscheint dann im PDF.");
-    const blob=await buildPdf(ids,y,m,withMoney);
-    await deliver(`Stundennachweis_${label}_${y}-${pad(m)}.pdf`,blob);
+    const blob=await buildPdf(ids,y,m,withMoney,pf);
+    await deliver(`Stundennachweis_${label}${pf?"_"+safeName(projName(ids[0],pf)):""}_${y}-${pad(m)}.pdf`,blob);
   }catch(e){toast("PDF fehlgeschlagen: "+(e&&e.message||e));}
 });
 
@@ -1301,51 +1544,70 @@ async function buildXlsx(Y,ids){
   for(let m=1;m<=12;m++){
     const name=MONTHS[m-1];
     const ws=wb.addWorksheet(name,{views:[{state:"frozen",ySplit:1}]});
-    ws.columns=[{width:30},{width:9},{width:9},{width:9},{width:9},{width:15},{width:24},{width:44}];
-    const hr=ws.getRow(1);hr.values=["Datum","Von","Bis","Von","Bis","Summe Stunden","Kunde","Notiz"];styleHead(hr);
-    let r=2,tot=0,rev=0;
+    ws.columns=[{width:30},{width:8},{width:8},{width:8},{width:8},{width:8},{width:8},{width:14},{width:22},{width:44},{width:22},{width:8},{width:11},{width:12},{width:12}];
+    const hr=ws.getRow(1);hr.values=["Datum","Von","Bis","Von","Bis","Von","Bis","Summe Stunden","Kunde","Notiz","Projekt","km","Spesen","Abrechnung","Betrag"];styleHead(hr);
+    const bills=new Map(ids.map(cid=>[cid,billMonth(cid,Y,m)]));
+    const dayStarted=new Set();
+    let r=2,tot=0,rev=0,tkm=0,tsp=0;
     for(let d=1;d<=daysIn(Y,m);d++){
       const dd=pad(d),wd=new Date(Y,m-1,d).getDay(),hol=H[`${pad(m)}-${dd}`];
       let list=[];
-      for(const cid of ids){const key=mk(cid,Y,m);for(const e of cleanList(getMonth(key).days[dd]))list.push({e,cid,rate:rateOf(key)});}
+      for(const cid of ids){const key=mk(cid,Y,m),b=bills.get(cid);const isDay=b.rows.some(x=>x.dd===dd&&x.day);for(const e of cleanList(getMonth(key).days[dd]))list.push({e,cid,rate:rateOf(key),isDay,dr:b.dr});}
       if(!list.length)list=[{e:blank(),cid:null,rate:0}];
-      for(const {e,cid,rate} of list){
+      for(const {e,cid,rate,isDay,dr} of list){
         const row=ws.getRow(r);
         const a=row.getCell(1);a.value=new Date(Date.UTC(Y,m-1,d));a.numFmt='[$-407]dddd, dd. mmmm yyyy';
         FIELDS.forEach((f,j)=>{const c=row.getCell(2+j);const t=toMin(e[f]);if(t!=null)c.value=t/1440;c.numFmt="hh:mm";});
-        const mins=entryMin(e);tot+=mins;rev+=mins/60*rate;
-        const F=row.getCell(6);
-        F.value={formula:`IF(COUNT(B${r}:C${r})=2,MOD(C${r}-B${r},1),0)+IF(COUNT(D${r}:E${r})=2,MOD(E${r}-D${r},1),0)`,result:mins/1440};F.numFmt="[h]:mm";
-        if(cid)row.getCell(7).value=clientName(cid);
-        if(e.notiz)row.getCell(8).value=e.notiz;
-        if(hol||wd===0||wd===6)for(let c=1;c<=8;c++)row.getCell(c).fill=hol?holFill:weFill;
+        const mins=entryMin(e);tkm+=+e.km||0;tsp+=+e.sp||0;tot+=mins;
+        const F=row.getCell(8);
+        F.value={formula:`IF(COUNT(B${r}:C${r})=2,MOD(C${r}-B${r},1),0)+IF(COUNT(D${r}:E${r})=2,MOD(E${r}-D${r},1),0)+IF(COUNT(F${r}:G${r})=2,MOD(G${r}-F${r},1),0)`,result:mins/1440};F.numFmt="[h]:mm";
+        if(cid)row.getCell(9).value=clientName(cid);
+        if(e.notiz)row.getCell(10).value=e.notiz;
+        if(cid&&e.p)row.getCell(11).value=projName(cid,e.p);
+        if(e.km!=="")row.getCell(12).value=e.km;
+        if(e.sp!==""){row.getCell(13).value=e.sp;row.getCell(13).numFmt='#,##0.00';}
+        if(cid){
+          row.getCell(14).value=isDay?"Tagessatz":"Stunden";
+          const B=row.getCell(15);B.numFmt='#,##0.00 "€"';
+          if(isDay){const first=!dayStarted.has(cid+dd);dayStarted.add(cid+dd);B.value=first?dr:0;rev+=first?dr:0;}
+          else{B.value={formula:`H${r}*24*${rate}`,result:mins/60*rate};rev+=mins/60*rate;}
+        }
+        if(hol||wd===0||wd===6)for(let c=1;c<=15;c++)row.getCell(c).fill=hol?holFill:weFill;
         r++;
       }
     }
     const sr=ws.getRow(r);
-    sr.getCell(5).value="Summe";sr.getCell(5).font={bold:true};
-    sr.getCell(6).value={formula:`SUM(F2:F${r-1})`,result:tot/1440};sr.getCell(6).numFmt="[h]:mm";sr.getCell(6).font={bold:true};
+    sr.getCell(7).value="Summe";sr.getCell(7).font={bold:true};
+    sr.getCell(8).value={formula:`SUM(H2:H${r-1})`,result:tot/1440};sr.getCell(8).numFmt="[h]:mm";
+    sr.getCell(12).value={formula:`SUM(L2:L${r-1})`,result:tkm};
+    sr.getCell(13).value={formula:`SUM(M2:M${r-1})`,result:tsp};sr.getCell(13).numFmt='#,##0.00';
+    sr.getCell(15).value={formula:`SUM(O2:O${r-1})`,result:rev};sr.getCell(15).numFmt='#,##0.00 "€"';
+    [8,12,13,15].forEach(c=>sr.getCell(c).font={bold:true});
     const rate=single?rateOf(mk(ids[0],Y,m)):(tot?Math.round(rev/(tot/60)*100)/100:state.settings.rate);
-    sums.push({ref:`'${name}'!F${r}`,min:tot,rate});
+    sums.push({name,r,min:tot,rate,km:tkm,sp:tsp,rev});
   }
-  ys.columns=[{width:18},{width:12},{width:16},{width:16},{width:30}];
+  ys.columns=[{width:18},{width:12},{width:16},{width:16},{width:30},{width:12},{width:12}];
   ys.getCell("A1").value=`Jahresumsatz ${Y} – ${single?clientName(ids[0]):"alle Kunden"}`;ys.getCell("A1").font={bold:true,size:14};
-  const yh=ys.getRow(2);yh.values=["","Stunden",single?"Stundenlohn":"Ø Stundenlohn","Umsatz",`Umsatz ohne Steuern (-${deduct}%)`];styleHead(yh);
+  const yh=ys.getRow(2);yh.values=["","Stunden",single?"Stundenlohn":"Ø Stundenlohn","Umsatz",`Umsatz ohne Steuern (-${deduct}%)`,"Kilometer","Spesen"];styleHead(yh);
   const money='#,##0.00 "€";[Red]-#,##0.00 "€"';
-  let tMin=0,tRev=0;
+  let tMin=0,tRev=0,tKm=0,tSp=0;
   sums.forEach((s,i)=>{
-    const r=3+i,row=ys.getRow(r),rev=s.min/60*s.rate;tMin+=s.min;tRev+=rev;
+    const r=3+i,row=ys.getRow(r),rev=s.rev;tMin+=s.min;tRev+=rev;tKm+=s.km;tSp+=s.sp;
     row.getCell(1).value=new Date(Date.UTC(Y,i,1));row.getCell(1).numFmt='[$-407]mmmm yy';
-    row.getCell(2).value={formula:s.ref,result:s.min/1440};row.getCell(2).numFmt="[h]:mm";
+    row.getCell(2).value={formula:`'${s.name}'!H${s.r}`,result:s.min/1440};row.getCell(2).numFmt="[h]:mm";
     row.getCell(3).value=s.rate;row.getCell(3).numFmt=money;
-    row.getCell(4).value={formula:`B${r}*C${r}*24`,result:rev};row.getCell(4).numFmt=money;
+    row.getCell(4).value={formula:`'${s.name}'!O${s.r}`,result:rev};row.getCell(4).numFmt=money;
     row.getCell(5).value={formula:`D${r}-(D${r}*${deduct}%)`,result:rev*(1-deduct/100)};row.getCell(5).numFmt=money;
+    row.getCell(6).value={formula:`'${s.name}'!L${s.r}`,result:s.km};
+    row.getCell(7).value={formula:`'${s.name}'!M${s.r}`,result:s.sp};row.getCell(7).numFmt=money;
   });
   const tr=ys.getRow(15);
   tr.getCell(1).value="Summe";
   tr.getCell(2).value={formula:"SUM(B3:B14)",result:tMin/1440};tr.getCell(2).numFmt="[h]:mm";
   tr.getCell(4).value={formula:"SUM(D3:D14)",result:tRev};tr.getCell(4).numFmt=money;
   tr.getCell(5).value={formula:"SUM(E3:E14)",result:tRev*(1-deduct/100)};tr.getCell(5).numFmt=money;
+  tr.getCell(6).value={formula:"SUM(F3:F14)",result:tKm};
+  tr.getCell(7).value={formula:"SUM(G3:G14)",result:tSp};tr.getCell(7).numFmt=money;
   tr.eachCell(c=>{c.font={bold:true};c.border={top:{style:"thin"}};});
   return wb.xlsx.writeBuffer();
 }
@@ -1446,64 +1708,111 @@ async function readXlsx(buf){
   }
   return {sheets,d1904};
 }
-/* Returns {groups: Map(kundeName -> {"YYYY-MM": {days}}), ratesByMonth} */
+const cellNum=(v,dec)=>{if(typeof v==="number")return Math.round(v*10**dec)/10**dec;const n=parseNumInput(v,dec);return n===null?"":n;};
+/* Reads month sheets; columns are found by their headings (Von/Bis…, Summe, Kunde, Notiz, Projekt, km, Spesen). */
 async function parseXlsx(buf){
   const {sheets,d1904}=await readXlsx(buf);
   const dv=v=>typeof v==="number"&&d1904?v+1462:v;
-  const groups=new Map(),ratesByMonth={};
+  const items=[];
   for(const ws of sheets){
-    if(/jahres|umsatz/i.test(ws.name)){for(const r of ws.rows){const a=cellDate(dv(r[1]));if(a&&typeof r[3]==="number")ratesByMonth[a.m]=r[3];}continue;}
-    for(const r of ws.rows){
+    if(/jahres|umsatz/i.test(ws.name))continue;
+    let hi=-1;const H={};
+    for(let i=0;i<Math.min(ws.rows.length,6);i++){
+      const txt=Object.entries(ws.rows[i]).filter(([,v])=>typeof v==="string").map(([c,v])=>[+c,v.trim().toLowerCase()]);
+      if(txt.some(([,v])=>v.startsWith("von"))){hi=i;for(const [c,v] of txt)H[c]=v;break;}
+    }
+    let tcols=[2,3,4,5],kc=7,nc=8,pc=0,kmc=0,spc=0,ac=0;
+    if(hi>=0){
+      const find=re=>{const e=Object.entries(H).find(([,v])=>re.test(v));return e?+e[0]:0;};
+      const sc=find(/^summe/);kc=find(/^kunde/);nc=find(/^(notiz|tätigkeit|taetigkeit)/);pc=find(/^(projekt|baustelle)/);kmc=find(/^(km|kilometer)\b/);spc=find(/^spesen/);ac=find(/^abrechnung/);
+      if(sc>2){tcols=[];for(let c=2;c<sc;c++)tcols.push(c);}
+      else tcols=Object.entries(H).filter(([,v])=>/^(von|bis)/.test(v)).map(([c])=>+c).sort((a,b)=>a-b);
+    }
+    for(let i=hi+1;i<ws.rows.length;i++){
+      const r=ws.rows[i];
       const dt=cellDate(dv(r[1]));if(!dt||dt.d<1||dt.d>31||dt.m<1||dt.m>12)continue;
-      const e={v1:cellTime(r[2]),b1:cellTime(r[3]),v2:cellTime(r[4]),b2:cellTime(r[5]),notiz:cellText(r[8])};
-      const kunde=cellText(r[7]);
-      if(isBlankEntry(e))continue;
-      const g=groups.get(kunde)||new Map();groups.set(kunde,g);
-      const ym=`${dt.y}-${pad(dt.m)}`;const mo=g.get(ym)||{days:{}};g.set(ym,mo);
-      (mo.days[pad(dt.d)]||(mo.days[pad(dt.d)]=[])).push(cleanEntry(e));
+      const t=tcols.map(c=>cellTime(r[c]));
+      const used=[];for(let j=0;j+1<t.length;j+=2)if(t[j]||t[j+1])used.push([t[j],t[j+1]]);
+      let k=kc?cellText(r[kc]):"";if(k==="-")k="";
+      const notiz=nc?cellText(r[nc]):"",pn=pc?cellText(r[pc]):"";
+      const km=kmc?cellNum(r[kmc],1):"",sp=spc?cellNum(r[spc],2):"";
+      const chunks=[];for(let j=0;j<used.length;j+=3)chunks.push(used.slice(j,j+3));
+      if(!chunks.length)chunks.push([]);
+      chunks.forEach((ch,ci)=>{
+        const e=blank();ch.forEach(([a,b],bi)=>{e[FIELDS[bi*2]]=a;e[FIELDS[bi*2+1]]=b;});
+        if(ci===0){e.notiz=notiz;e.km=km;e.sp=sp;}
+        if(ac&&/^tag/i.test(cellText(r[ac])))e.t="d";
+        const ce=cleanEntry(e);
+        if(isBlankEntry(ce)&&!(ci===0&&k))return;
+        items.push({y:dt.y,m:dt.m,dd:pad(dt.d),e:ce,k,pn});
+      });
     }
   }
-  return {groups,ratesByMonth};
+  return items;
 }
 function fallbackClient(){return isAll()?state.lastClient:state.client;}
-async function importGroups(groups,ratesByMonth,title){
-  if(!groups.size){toast("In der Datei wurden keine Einträge gefunden.");return;}
-  const plan=[],toCreate=[];
-  for(const [name,months] of groups){
-    let c=name?state.clients.find(x=>x.name.toLowerCase()===name.toLowerCase()):clientById(fallbackClient());
-    let isNew=false;
-    if(!c){const nm=name||"Kunde 1";c=toCreate.find(x=>x.name===nm)||{id:null,name:nm};if(!toCreate.includes(c))toCreate.push(c);isNew=true;}
-    let n=0;for(const mo of months.values())for(const l of Object.values(mo.days))n+=l.length;
-    const yms=[...months.keys()].sort();
-    plan.push({c,months,n,isNew,range:`${MONTHS[+yms[0].slice(5)-1]} ${yms[0].slice(0,4)}${yms.length>1?` – ${MONTHS[+yms[yms.length-1].slice(5)-1]} ${yms[yms.length-1].slice(0,4)}`:""}`});
-  }
-  const text=plan.map(p=>`${p.c.name}${p.isNew?" (wird neu angelegt)":""}: ${p.n} ${p.n===1?"Eintrag":"Einträge"}, ${p.range}`).join(" · ");
-  const ok=await confirmBox(title,`${text}. Vorhandene Einträge dieser Kunden in diesen Monaten werden ersetzt.`,"Importieren");
-  if(!ok)return;
-  for(const c of toCreate){const nc=addClient(c.name,state.settings.rate);c.id=nc?nc.id:(state.clients.find(x=>x.name.toLowerCase()===c.name.toLowerCase())||{}).id;}
-  const singleClient=plan.length===1;
-  let last=null,total=0;
-  for(const p of plan){
-    const cid=p.c.id;if(!cid)continue;
-    for(const [ym,mo] of p.months){
-      const Y=+ym.slice(0,4),M=+ym.slice(5),key=mk(cid,Y,M);
-      const r=ratesByMonth&&singleClient?ratesByMonth[M]:undefined;
-      state.months[key]={rate:typeof r==="number"&&r!==baseRate(cid)?r:null,days:mo.days};
-      queueMonthReplace(key);
-      if(!last||key.slice(-7)>last.slice(-7))last=key;
+let impRes=null;
+function impResolve(v){if(impRes){const r=impRes;impRes=null;r(v);}$("#ov-import").hidden=true;}
+$("#imp-yes").addEventListener("click",()=>impResolve(true));
+$("#imp-no").addEventListener("click",()=>impResolve(false));
+async function importItems(items,title){
+  if(!items.length){toast("In der Datei wurden keine Einträge gefunden.");return;}
+  const findClient=k=>state.clients.find(c=>c.name.toLowerCase()===k.toLowerCase());
+  const names=new Map();for(const it of items)names.set(it.k,(names.get(it.k)||0)+1);
+  const allKnown=[...names.keys()].every(k=>!k||findClient(k));
+  const fb=clientById(fallbackClient())||state.clients[0]||null;
+  const yms=[...new Set(items.map(it=>`${it.y}-${pad(it.m)}`))].sort();
+  const ymTxt=ym=>`${MONTHS[+ym.slice(5)-1]} ${ym.slice(0,4)}`;
+  const mins=items.reduce((t,it)=>t+entryMin(it.e),0);
+  $("#imp-h").textContent=title;
+  $("#imp-text").textContent=`${items.length} ${items.length===1?"Eintrag":"Einträge"} mit ${fmtHM(mins)} Stunden, ${ymTxt(yms[0])}${yms.length>1?` – ${ymTxt(yms[yms.length-1])}`:""}.`;
+  const sel=$("#imp-assign");
+  sel.innerHTML=`<option value="__col">Nach Spalte „Kunde“ zuordnen</option>`+state.clients.map(c=>`<option value="${esc(c.id)}">Alles zu ${esc(c.name)}</option>`).join("");
+  sel.value=allKnown||!fb?"__col":fb.id;
+  const update=()=>{
+    if(sel.value==="__col"){
+      const parts=[...names.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,n])=>k?`${k} (${n}${findClient(k)?"":", neu"})`:`ohne Kunde → ${fb?fb.name:"Kunde 1"} (${n})`);
+      $("#imp-note").textContent=`Kunden laut Datei: ${parts.join(", ")}${names.size>8?" …":""}. Unbekannte Namen werden als neue Kunden angelegt. Vorhandene Einträge dieser Kunden in diesen Monaten werden ersetzt.`;
+    }else{
+      $("#imp-note").textContent=`Alle Einträge gehen zu ${clientName(sel.value)}. Was in der Spalte „Kunde“ steht, wird vorne in die Notiz übernommen. Vorhandene Einträge dieses Kunden in diesen Monaten werden ersetzt.`;
     }
-    total+=p.n;
+  };
+  sel.onchange=update;update();
+  $("#ov-import").hidden=false;$("#imp-yes").focus();
+  const ok=await new Promise(res=>{impRes=res;});
+  if(!ok)return;
+  const mode=sel.value,cidFor=new Map();
+  if(mode==="__col")for(const k of names.keys()){
+    let c=k?findClient(k):fb;
+    if(!c)c=addClient(k||"Kunde 1",state.settings.rate)||findClient(k||"Kunde 1");
+    if(c)cidFor.set(k,c.id);
   }
+  const months=new Map();
+  for(const it of items){
+    const cid=mode==="__col"?cidFor.get(it.k):mode;if(!cid)continue;
+    const e={...it.e};
+    if(mode!=="__col"&&it.k)e.notiz=[it.k,e.notiz].filter(Boolean).join(" – ");
+    if(it.pn){const pr=addProject(cid,it.pn);if(pr)e.p=pr.id;}
+    const ce=cleanEntry(e);if(isBlankEntry(ce))continue;
+    const key=mk(cid,it.y,it.m);
+    const mo=months.get(key)||{rate:state.months[key]?.rate??null,days:{}};
+    (mo.days[it.dd]||(mo.days[it.dd]=[])).push(ce);
+    months.set(key,mo);
+  }
+  let last=null;const targets=new Set();
+  for(const [key,mo] of months){state.months[key]=normalize(mo);queueMonthReplace(key);targets.add(parseKey(key).cid);if(!last||key.slice(-7)>last.slice(-7))last=key;}
   saveOutbox();scheduleSync(300);
-  if(last){const k=parseKey(last);state.client=plan.length===1?plan[0].c.id:state.client;if(state.client!=="*")lsSet(K.client,state.client);setPeriod(k.y,k.m,"month");}
-  render();toast(`${total} Einträge übernommen – werden jetzt gespeichert.`);
+  if(last){const k=parseKey(last);if(targets.size===1){state.client=k.cid;lsSet(K.client,k.cid);state.lastClient=k.cid;lsSet(K.last,k.cid);}setPeriod(k.y,k.m,"month");}
+  render();
+  let n=0;for(const mo of months.values())for(const l of Object.values(mo.days))n+=l.length;
+  toast(`${n} Einträge übernommen – werden jetzt gespeichert.`);
 }
 $("#im-xlsx").addEventListener("click",()=>{$("#file-xlsx").value="";$("#file-xlsx").click();});
 $("#im-json").addEventListener("click",()=>{$("#file-json").value="";$("#file-json").click();});
 $("#file-xlsx").addEventListener("change",async ev=>{
   const file=ev.target.files&&ev.target.files[0];if(!file)return;
   closeOv($("#ov-settings"));
-  try{toast("Excel-Datei wird gelesen …");const {groups,ratesByMonth}=await parseXlsx(await file.arrayBuffer());await importGroups(groups,ratesByMonth,"Excel importieren");}
+  try{toast("Excel-Datei wird gelesen …");const items=await parseXlsx(await file.arrayBuffer());await importItems(items,"Excel importieren");}
   catch(e){toast("Import fehlgeschlagen: "+(e&&e.message||e));}
 });
 $("#file-json").addEventListener("change",async ev=>{
@@ -1523,15 +1832,12 @@ $("#file-json").addEventListener("change",async ev=>{
       saveOutbox();scheduleSync(300);render();toast("Backup wird wiederhergestellt.");
     }else{
       /* older single-table backup: entries carry the client name */
-      const groups=new Map();
+      const items=[];
       for(const [ym,mo] of Object.entries(o.months)){
         if(!/^\d{4}-\d{2}$/.test(ym))continue;
-        for(const [dd,list] of Object.entries(mo.days||{}))for(const e of (list||[])){
-          const name=String(e.kunde||"").trim();const g=groups.get(name)||new Map();groups.set(name,g);
-          const m2=g.get(ym)||{days:{}};g.set(ym,m2);(m2.days[dd]||(m2.days[dd]=[])).push(cleanEntry(e));
-        }
+        for(const [dd,list] of Object.entries(mo.days||{}))for(const e of (list||[]))items.push({y:+ym.slice(0,4),m:+ym.slice(5),dd,e:cleanEntry(e),k:String(e.kunde||"").trim(),pn:""});
       }
-      await importGroups(groups,null,"Backup übernehmen");
+      await importItems(items,"Backup übernehmen");
     }
   }catch(e){toast("Wiederherstellen fehlgeschlagen: "+(e&&e.message||e));}
 });
