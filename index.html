@@ -169,7 +169,8 @@ td.rate input.own{border-color:var(--accent)}
 .onboard .cl-row{padding:0 14px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px 0}
 .chip{border:1px dashed var(--accent);background:transparent;border-radius:999px;padding:4px 12px;cursor:pointer;color:var(--accent)}
-#cl-list,#pr-list{display:grid;gap:8px}
+#cl-list,#pr-list,#rt-list{display:grid;gap:8px}
+.cl-row input[type="month"]{width:auto;font-family:var(--font-mono)}
 .cl-row .cl-km{width:7ch}
 .cl-head{display:flex;gap:8px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 
@@ -369,7 +370,7 @@ td.rate input.own{border-color:var(--accent)}
   <div class="panel wide" role="dialog" aria-modal="true" aria-labelledby="ov-clients-h">
     <h2 id="ov-clients-h">Kunden</h2>
     <div id="cl-list"></div>
-    <p class="foot">Pro Kunde: Name, Stundensatz (€/h), Tagessatz (€/Tag, 0 = keiner) mit Standard-Abrechnung für neue Einträge, km-Satz (€/km) und Projekte/Baustellen.</p>
+    <p class="foot">Pro Kunde: Name, Startsatz (€/h), Tagessatz (€/Tag, 0 = keiner) mit Standard-Abrechnung für neue Einträge, km-Satz (€/km), Projekte/Baustellen und Satzänderungen ab einem bestimmten Monat.</p>
     <h3>Neuer Kunde</h3>
     <form class="cl-row" id="cl-add">
       <input type="text" id="cl-new-name" placeholder="Name, z. B. TechnoAlpin" aria-label="Name des neuen Kunden">
@@ -392,6 +393,31 @@ td.rate input.own{border-color:var(--accent)}
     </form>
     <p class="foot">Ausgeblendete Projekte erscheinen nicht mehr in der Auswahl, ihre Einträge bleiben erhalten.</p>
     <div class="row-btns"><button type="button" class="btn" id="pr-back">Zurück zu Kunden</button><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-rates" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-rates-h">
+    <h2 id="ov-rates-h">Satzänderungen</h2>
+    <p class="foot" id="rt-base"></p>
+    <div id="rt-list"></div>
+    <h3>Neue Änderung</h3>
+    <form class="cl-row" id="rt-add">
+      <label for="rt-from">ab</label><input type="month" id="rt-from" placeholder="JJJJ-MM" aria-label="gültig ab Monat">
+      <input type="number" id="rt-rate" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz"><span class="unit">€/h</span>
+      <input type="number" id="rt-day" min="0" step="1" inputmode="decimal" placeholder="gleich" aria-label="Tagessatz (leer = unverändert)" style="width:9ch"><span class="unit">€/Tag</span>
+      <button type="submit" class="btn primary">Hinzufügen</button>
+    </form>
+    <p class="foot">Eine Änderung gilt ab dem gewählten Monat für alle folgenden Monate, bis zur nächsten Änderung. Frühere Monate behalten ihren Satz. Tagessatz leer lassen = bleibt wie bisher.</p>
+    <div class="row-btns"><button type="button" class="btn" id="rt-back">Zurück zu Kunden</button><button type="button" class="btn" data-close>Fertig</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-choice" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="ch-h">
+    <h2 id="ch-h">Auswahl</h2>
+    <p id="ch-text"></p>
+    <div class="row-btns" id="ch-btns"></div>
   </div>
 </div>
 
@@ -548,9 +574,9 @@ const clientById=id=>state.clients.find(c=>c.id===id)||null;
 const clientName=id=>clientById(id)?.name||"Unbekannter Kunde";
 function rateOf(key){
   const r=state.months[key]?.rate;if(typeof r==="number")return r;
-  const c=clientById(parseKey(key).cid);return c&&typeof c.rate==="number"?c.rate:state.settings.rate;
+  const {cid,y,m}=parseKey(key);return ratePeriod(cid,y,m).rate;
 }
-const baseRate=cid=>{const c=clientById(cid);return c&&typeof c.rate==="number"?c.rate:state.settings.rate;};
+const baseRateFor=key=>{const {cid,y,m}=parseKey(key);return ratePeriod(cid,y,m).rate;};
 const netOf=v=>v*(1-state.settings.deduct/100);
 const money=v=>state.showMoney?eur(v):"•••• €";
 const isAll=()=>state.client==="*";
@@ -560,10 +586,29 @@ function sanitizeClients(list){
   for(const c of (Array.isArray(list)?list:[])){
     if(!c||typeof c.id!=="string"||!/^[a-z0-9]+$/.test(c.id)||seen.has(c.id))continue;
     seen.add(c.id);
-    out.push({id:c.id,name:String(c.name||"Kunde").slice(0,80),rate:numOr(c.rate,DEFAULTS.rate),kmRate:Math.max(0,numOr(c.kmRate,DEFAULTS.kmRate)),dayRate:Math.max(0,numOr(c.dayRate,0)),bill:c.bill==="d"?"d":"h",hidden:!!c.hidden,projects:sanitizeProjects(c.projects)});
+    out.push({id:c.id,name:String(c.name||"Kunde").slice(0,80),rate:numOr(c.rate,DEFAULTS.rate),kmRate:Math.max(0,numOr(c.kmRate,DEFAULTS.kmRate)),dayRate:Math.max(0,numOr(c.dayRate,0)),bill:c.bill==="d"?"d":"h",hidden:!!c.hidden,projects:sanitizeProjects(c.projects),rates:sanitizeRates(c.rates)});
   }
   return out;
 }
+function sanitizeRates(list){
+  const m=new Map();
+  for(const r of (Array.isArray(list)?list:[])){
+    if(!r||!/^\d{4}-\d{2}$/.test(r.from||""))continue;
+    const rate=typeof r.rate==="number"&&isFinite(r.rate)&&r.rate>=0?r.rate:null;
+    const dayRate=typeof r.dayRate==="number"&&isFinite(r.dayRate)&&r.dayRate>=0?r.dayRate:null;
+    if(rate==null&&dayRate==null)continue;
+    m.set(r.from,{from:r.from,rate,dayRate});
+  }
+  return [...m.values()].sort((a,b)=>a.from.localeCompare(b.from));
+}
+/* Effective client rates for a month: start values, overridden by every change whose "from" month has been reached. */
+function ratePeriod(cid,y,m){
+  const c=clientById(cid);if(!c)return {rate:state.settings.rate,dayRate:0};
+  let rate=c.rate,dayRate=c.dayRate;const ym=`${y}-${pad(m)}`;
+  for(const ch of c.rates||[]){if(ch.from>ym)break;if(ch.rate!=null)rate=ch.rate;if(ch.dayRate!=null)dayRate=ch.dayRate;}
+  return {rate,dayRate};
+}
+const ymLabel=ym=>`${MONTHS[+ym.slice(5)-1]} ${ym.slice(0,4)}`;
 function sanitizeProjects(list){
   const out=[],seen=new Set();
   for(const p of (Array.isArray(list)?list:[])){
@@ -574,8 +619,9 @@ function sanitizeProjects(list){
 }
 const projName=(cid,pid)=>{if(!pid)return "";const pr=clientById(cid)?.projects.find(p=>p.id===pid);return pr?pr.name:"Unbekanntes Projekt";};
 const kmRateOf=cid=>{const c=clientById(cid);return c?c.kmRate:0;};
-const dayRateOf=cid=>{const c=clientById(cid);return c?c.dayRate:0;};
-const defaultBill=cid=>{const c=clientById(cid);return c&&c.dayRate>0&&c.bill==="d"?"d":"";};
+const dayRateAt=(cid,y,m)=>ratePeriod(cid,y,m).dayRate;
+const hasDayRate=c=>!!c&&(c.dayRate>0||(c.rates||[]).some(r=>r.dayRate>0));
+const defaultBill=cid=>{const c=clientById(cid);return c&&c.bill==="d"&&dayRateAt(cid,state.y,state.m)>0?"d":"";};
 let lastProj=lsJSON(K.lastProj)||{};
 const lastProjectOf=cid=>{const pid=lastProj[cid];const c=clientById(cid);return pid&&c&&c.projects.some(p=>p.id===pid&&!p.hidden)?pid:"";};
 const setLastProject=(cid,pid)=>{lastProj[cid]=pid||"";lsPut(K.lastProj,lastProj);};
@@ -836,7 +882,7 @@ async function recoverClients(){
   }
   for(const id of orphans){
     triedRecover.add(id);
-    if(!clientById(id)){const c={id,name:`Wiederhergestellter Kunde ${state.clients.length+1}`,rate:state.settings.rate,kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[]};state.clients.push(c);restored.push(c.name);}
+    if(!clientById(id)){const c={id,name:`Wiederhergestellter Kunde ${state.clients.length+1}`,rate:state.settings.rate,kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[],rates:[]};state.clients.push(c);restored.push(c.name);}
   }
   recovering=false;
   if(restored.length){queueMeta("clients");ensureActiveClient();render();toast(`Wiederhergestellt: ${restored.join(", ")}. Bitte unter „Kunden verwalten“ die Sätze prüfen.`);}
@@ -941,7 +987,7 @@ function renderMonth(){
 }
 function renderMonthGrid(){
   const {y,m}=state,key=mk(state.client,y,m),md=getMonth(key),H=holidays(y);
-  const nd=daysIn(y,m),t=new Date(),dr=dayRateOf(state.client);
+  const nd=daysIn(y,m),t=new Date(),dr=dayRateAt(state.client,y,m);
   const todayD=(t.getFullYear()===y&&t.getMonth()+1===m)?t.getDate():0;
   let h=`<div class="row head" role="row"><span>Datum</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span>Von</span><span>Bis</span><span class="r">Stunden</span><span title="Abrechnung: Stunden oder Tagessatz">Abr.</span><span>Projekt / Baustelle</span><span class="r">km</span><span class="r">Spesen €</span><span>Notiz / Tätigkeit</span><span></span></div>`;
   for(let d=1;d<=nd;d++){
@@ -988,7 +1034,7 @@ function renderMonthAll(){
 const addTo=(map,k,v)=>{const t=map.get(k)||{min:0,rev:0,km:0,sp:0,kmMoney:0};t.min+=v.min;t.rev+=v.rev;t.km+=v.km;t.sp+=v.sp;t.kmMoney+=v.kmMoney;map.set(k,t);};
 /* Per client-month: days marked "Tag" are billed with the client's day rate (once per day), all others by the hour. */
 function billMonth(cid,y,m){
-  const key=mk(cid,y,m),rate=rateOf(key),dr=dayRateOf(cid),byDay=new Map();
+  const key=mk(cid,y,m),rate=rateOf(key),dr=dayRateAt(cid,y,m),byDay=new Map();
   for(const [dd,e] of monthEntries(key)){if(!byDay.has(dd))byDay.set(dd,[]);byDay.get(dd).push(e);}
   const rows=[];let hourMin=0,dayN=0;
   for(const [dd,list] of byDay){
@@ -1032,7 +1078,7 @@ function renderMonthSummary(){
     $("#m-rate-wrap").hidden=!state.showMoney;$("#m-rate-mask").hidden=state.showMoney;
     const own=typeof state.months[key]?.rate==="number";
     $("#m-rate-note").innerHTML=!state.showMoney?`<button type="button" class="linkish" id="m-money-on">Beträge einblenden</button> zum Ändern`
-      :(own?`Nur dieser Monat · <button type="button" class="linkish" id="m-rate-reset">auf ${esc(eur(baseRate(state.client)))} zurück</button>`:`Satz von ${esc(clientName(state.client))}`)+(dayRateOf(state.client)?` · Tagessatz ${esc(eur(dayRateOf(state.client)))}`:"");
+      :(own?`Nur dieser Monat · <button type="button" class="linkish" id="m-rate-reset">auf ${esc(eur(baseRateFor(key)))} zurück</button>`:`Satz von ${esc(clientName(state.client))}`)+(dayRateAt(state.client,y,m)?` · Tagessatz ${esc(eur(dayRateAt(state.client,y,m)))}`:"")+` · <button type="button" class="linkish" id="m-rates-open">Satzänderungen</button>`;
   }
   $("#m-rev").textContent=money(st.rev);
   $("#m-days").textContent=`${st.days} ${st.days===1?"Arbeitstag":"Arbeitstage"}${st.dayN?` · davon ${st.dayN} ${st.dayN===1?"Tagessatz":"Tagessätze"}`:""}`;
@@ -1225,14 +1271,45 @@ document.addEventListener("click",ev=>{
 /* Month rate */
 function setMonthRate(key,raw){
   const v=raw===""?null:numOr(raw,null);
-  const md=ensureMonth(key),base=baseRate(parseKey(key).cid);
+  const md=ensureMonth(key),base=baseRateFor(key);
   md.rate=(v==null||v<0||v===base)?null:Math.round(v*100)/100;
   queueRate(key);
 }
-$("#m-rate").addEventListener("change",ev=>{setMonthRate(mk(state.client,state.y,state.m),ev.target.value);renderMonthSummary();});
+let chRes=null;
+function chResolve(v){if(chRes){const r=chRes;chRes=null;r(v);}$("#ov-choice").hidden=true;}
+function choiceBox(title,text,labels){
+  $("#ch-h").textContent=title;$("#ch-text").textContent=text;
+  const box=$("#ch-btns");box.innerHTML="";
+  labels.forEach((l,i)=>{const b=document.createElement("button");b.type="button";b.className="btn"+(i===labels.length-1?" primary":"");b.textContent=l;b.onclick=()=>chResolve(i);box.append(b);});
+  const c=document.createElement("button");c.type="button";c.className="btn";c.textContent="Abbrechen";c.onclick=()=>chResolve(-1);box.prepend(c);
+  $("#ov-choice").hidden=false;box.lastChild.focus();
+  return new Promise(res=>{chRes=res;});
+}
+$("#ov-choice").addEventListener("click",ev=>{if(ev.target.id==="ov-choice")chResolve(-1);});
+function setRateFrom(cid,ym,rate,dayRate){
+  const c=clientById(cid);if(!c)return;
+  const ex=c.rates.find(r=>r.from===ym);
+  if(ex){if(rate!=null)ex.rate=rate;if(dayRate!=null)ex.dayRate=dayRate;}
+  else c.rates.push({from:ym,rate:rate??null,dayRate:dayRate??null});
+  c.rates=sanitizeRates(c.rates);queueMeta("clients");
+}
+$("#m-rate").addEventListener("change",async ev=>{
+  const key=mk(state.client,state.y,state.m),raw=ev.target.value,v=raw===""?null:numOr(raw,null);
+  if(v==null||v<0){setMonthRate(key,"");renderMonthSummary();return;}
+  const val=Math.round(v*100)/100,lbl=`${MONTHS[state.m-1]} ${state.y}`;
+  const i=await choiceBox("Stundensatz ändern",`${eur(val)}/h für ${clientName(state.client)} übernehmen:`,[`Nur ${lbl}`,`Ab ${lbl} dauerhaft`]);
+  if(i===0)setMonthRate(key,raw);
+  else if(i===1){
+    setRateFrom(state.client,`${state.y}-${pad(state.m)}`,val,null);
+    const md=ensureMonth(key);if(md.rate!=null){md.rate=null;queueRate(key);}
+    toast(`Ab ${lbl} gilt ${eur(val)}/h für ${clientName(state.client)}.`);
+  }
+  render();
+});
 $("#month-tiles").addEventListener("click",ev=>{
   if(ev.target.id==="m-rate-reset"){setMonthRate(mk(state.client,state.y,state.m),"");renderMonthSummary();}
   if(ev.target.id==="m-money-on")setMoney(true);
+  if(ev.target.id==="m-rates-open")openRates(state.client);
 });
 try{if(lsGet(K.sum)==="1")$("#m-sumbox").open=true;}catch(e){}
 $("#m-sumbox").addEventListener("toggle",ev=>lsSet(K.sum,ev.target.open?"1":"0"));
@@ -1314,7 +1391,7 @@ function closeOv(el){el.hidden=true;}
 document.querySelectorAll(".overlay").forEach(ov=>{
   ov.addEventListener("click",ev=>{if(ev.target===ov||ev.target.closest("[data-close]")){if(ov.id==="ov-confirm")cfResolve(false);closeOv(ov);}});
 });
-document.addEventListener("keydown",ev=>{if(ev.key==="Escape")document.querySelectorAll(".overlay:not([hidden])").forEach(o=>{if(o.id==="ov-confirm")cfResolve(false);if(o.id==="ov-prompt")ppResolve(null);if(o.id==="ov-import")impResolve(false);closeOv(o);});});
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape")document.querySelectorAll(".overlay:not([hidden])").forEach(o=>{if(o.id==="ov-confirm")cfResolve(false);if(o.id==="ov-prompt")ppResolve(null);if(o.id==="ov-import")impResolve(false);if(o.id==="ov-choice")chResolve(-1);closeOv(o);});});
 let toastTimer=null;
 function toast(msg,actLabel,actFn){
   const t=$("#toast");t.textContent="";
@@ -1348,7 +1425,7 @@ function addClient(name,rate){
   name=String(name||"").trim().slice(0,80);
   if(!name){toast("Bitte einen Namen eingeben.");return null;}
   if(state.clients.some(c=>c.name.toLowerCase()===name.toLowerCase())){toast(`„${name}“ gibt es schon.`);return null;}
-  const c={id:newClientId(),name,rate:numOr(rate,state.settings.rate),kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[]};
+  const c={id:newClientId(),name,rate:numOr(rate,state.settings.rate),kmRate:state.settings.kmRate,dayRate:0,bill:"h",hidden:false,projects:[],rates:[]};
   state.clients.push(c);queueMeta("clients");
   return c;
 }
@@ -1358,9 +1435,10 @@ function renderClientList(){
     <input type="text" class="cl-name" id="cl-name-${esc(c.id)}" value="${esc(c.name)}" aria-label="Name">
     <input type="number" class="cl-rate" id="cl-rate-${esc(c.id)}" value="${esc(c.rate)}" min="0" step="0.5" inputmode="decimal" aria-label="Stundensatz von ${esc(c.name)}"><span class="unit">€/h</span>
     <input type="number" class="cl-day" id="cl-day-${esc(c.id)}" value="${esc(c.dayRate)}" min="0" step="1" inputmode="decimal" aria-label="Tagessatz von ${esc(c.name)}" style="width:8ch"><span class="unit">€/Tag</span>
-    <select class="cl-bill" id="cl-bill-${esc(c.id)}" aria-label="Standard-Abrechnung von ${esc(c.name)}" ${c.dayRate>0?"":"disabled"} style="border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--bg)"><option value="h"${c.bill==="d"?"":" selected"}>Standard: Stunden</option><option value="d"${c.bill==="d"?" selected":""}>Standard: Tagessatz</option></select>
+    <select class="cl-bill" id="cl-bill-${esc(c.id)}" aria-label="Standard-Abrechnung von ${esc(c.name)}" ${hasDayRate(c)?"":"disabled"} style="border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--bg)"><option value="h"${c.bill==="d"?"":" selected"}>Standard: Stunden</option><option value="d"${c.bill==="d"?" selected":""}>Standard: Tagessatz</option></select>
     <input type="number" class="cl-km" id="cl-km-${esc(c.id)}" value="${esc(c.kmRate)}" min="0" step="0.01" inputmode="decimal" aria-label="km-Satz von ${esc(c.name)}"><span class="unit">€/km</span>
     <button type="button" class="btn" data-projects="${esc(c.id)}">Projekte (${c.projects.filter(p=>!p.hidden).length})</button>
+    <button type="button" class="btn" data-rates="${esc(c.id)}">Satzänderungen (${c.rates.length})</button>
     <label><input type="checkbox" class="cl-hide" id="cl-hide-${esc(c.id)}" ${c.hidden?"checked":""}> ausblenden</label></div>`).join("")
     :`<p class="foot">Noch keine Kunden.</p>`;
 }
@@ -1387,7 +1465,49 @@ $("#cl-list").addEventListener("change",ev=>{
   }
   queueMeta("clients");render();
 });
-$("#cl-list").addEventListener("click",ev=>{const b=ev.target.closest("[data-projects]");if(b){closeOv($("#ov-clients"));openProjects(b.dataset.projects);}});
+$("#cl-list").addEventListener("click",ev=>{
+  const b=ev.target.closest("[data-projects]");if(b){closeOv($("#ov-clients"));openProjects(b.dataset.projects);return;}
+  const r=ev.target.closest("[data-rates]");if(r){closeOv($("#ov-clients"));openRates(r.dataset.rates);}
+});
+let ratesClient=null;
+function openRates(cid){
+  ratesClient=cid;const c=clientById(cid);if(!c)return;
+  $("#ov-rates-h").textContent=`Satzänderungen – ${c.name}`;
+  $("#rt-from").value=`${state.y}-${pad(state.m)}`;$("#rt-rate").value=String(ratePeriod(cid,state.y,state.m).rate);$("#rt-day").value="";
+  renderRateList();openOv("#ov-rates");
+}
+function renderRateList(){
+  const c=clientById(ratesClient);if(!c)return;
+  $("#rt-base").textContent=`Startsatz (gilt vor der ersten Änderung): ${eur(c.rate)}/h${c.dayRate?` · ${eur(c.dayRate)}/Tag`:""} – änderbar unter „Kunden verwalten“.`;
+  $("#rt-list").innerHTML=c.rates.length?c.rates.map((r,i)=>`<div class="cl-row" data-i="${i}">
+    <span class="unit">ab</span><input type="month" class="rt-f" id="rt-f-${i}" value="${esc(r.from)}" aria-label="gültig ab">
+    <input type="number" class="rt-r" id="rt-r-${i}" value="${r.rate??""}" min="0" step="0.5" inputmode="decimal" placeholder="gleich" aria-label="Stundensatz"><span class="unit">€/h</span>
+    <input type="number" class="rt-d" id="rt-d-${i}" value="${r.dayRate??""}" min="0" step="1" inputmode="decimal" placeholder="gleich" aria-label="Tagessatz" style="width:9ch"><span class="unit">€/Tag</span>
+    <button type="button" class="mini" data-del="${i}" aria-label="Änderung ab ${esc(ymLabel(r.from))} löschen" title="Löschen">×</button></div>`).join("")
+    :`<p class="foot">Noch keine Änderungen – es gilt überall der Startsatz.</p>`;
+}
+$("#rt-list").addEventListener("change",ev=>{
+  const row=ev.target.closest("[data-i]"),c=clientById(ratesClient);if(!row||!c)return;
+  const r=c.rates[+row.dataset.i];if(!r)return;
+  if(ev.target.classList.contains("rt-f")){if(!/^\d{4}-\d{2}$/.test(ev.target.value)){ev.target.value=r.from;toast("Monat bitte als JJJJ-MM angeben, z. B. 2026-11.");return;}r.from=ev.target.value;}
+  else{const v=ev.target.value===""?null:numOr(ev.target.value,null);if(v!=null&&v<0)return;if(ev.target.classList.contains("rt-r"))r.rate=v;else r.dayRate=v;}
+  c.rates=sanitizeRates(c.rates);queueMeta("clients");renderRateList();render();
+});
+$("#rt-list").addEventListener("click",ev=>{
+  const b=ev.target.closest("[data-del]"),c=clientById(ratesClient);if(!b||!c)return;
+  const r=c.rates.splice(+b.dataset.del,1)[0];queueMeta("clients");renderRateList();render();
+  toast(`Änderung ab ${ymLabel(r.from)} gelöscht.`);
+});
+$("#rt-add").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const from=$("#rt-from").value.trim();
+  if(!/^\d{4}-\d{2}$/.test(from)){toast("Monat bitte als JJJJ-MM angeben, z. B. 2026-11.");return;}
+  const rate=$("#rt-rate").value===""?null:numOr($("#rt-rate").value,null),day=$("#rt-day").value===""?null:numOr($("#rt-day").value,null);
+  if(rate==null&&day==null){toast("Bitte einen Stunden- oder Tagessatz eintragen.");return;}
+  setRateFrom(ratesClient,from,rate!=null?Math.round(rate*100)/100:null,day!=null?Math.round(day*100)/100:null);
+  renderRateList();render();toast(`Ab ${ymLabel(from)} gespeichert.`);
+});
+$("#rt-back").addEventListener("click",()=>{closeOv($("#ov-rates"));openClients();});
 let projClient=null;
 function openProjects(cid){projClient=cid;$("#ov-projects-h").textContent=`Projekte – ${clientName(cid)}`;renderProjList();$("#pr-new-name").value="";openOv("#ov-projects");$("#pr-new-name").focus();}
 function renderProjList(){
